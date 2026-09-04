@@ -11,13 +11,13 @@ import {
 } from 'recharts';
 import { WELLS, BGW014_PRODUCTION, BGW014_CSS_CYCLES, BGW014_SRP } from '../data/mockData';
 
-// Chart Data for 3 side-by-side graphs (Matching Panel 4 in Design)
+// Chart Data for 4 trend graphs (Matching all 4 KPIs)
 const TREND_DATA = [
-  { date: '1 Oct',  production: 42.1, temperature: 86, rodLoad: 4.8 },
-  { date: '8 Oct',  production: 38.6, temperature: 83, rodLoad: 5.1 },
-  { date: '15 Oct', production: 35.2, temperature: 80, rodLoad: 5.5 },
-  { date: '22 Oct', production: 31.2, temperature: 77, rodLoad: 5.8 },
-  { date: '31 Oct', production: 24.8, temperature: 74, rodLoad: 6.3 },
+  { date: '1 Oct',  production: 42.1, temperature: 86, rodLoad: 4.8, pumpEff: 78 },
+  { date: '8 Oct',  production: 38.6, temperature: 83, rodLoad: 5.1, pumpEff: 74 },
+  { date: '15 Oct', production: 35.2, temperature: 80, rodLoad: 5.5, pumpEff: 70 },
+  { date: '22 Oct', production: 31.2, temperature: 77, rodLoad: 5.8, pumpEff: 66 },
+  { date: '31 Oct', production: 24.8, temperature: 74, rodLoad: 6.3, pumpEff: 62 },
 ];
 
 export const WellDetailsPage: React.FC = () => {
@@ -179,23 +179,23 @@ export const WellDetailsPage: React.FC = () => {
 
           </div>
 
-          {/* 3 Side-by-Side Trend Charts (Matching Panel 4) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 4 Side-by-Side Trend Charts (Matching all 4 KPIs) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Chart 1: Production Trend */}
             <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-sm space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-                <h4 className="text-[14px] font-bold text-[#0F172A]">Production Trend</h4>
+                <h4 className="text-[13px] font-bold text-[#0F172A]">Production Trend</h4>
                 <span className="text-[11px] font-semibold text-[#0284C7]">BPD</span>
               </div>
-              <div className="h-48">
+              <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={TREND_DATA}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94A3B8' }} />
-                    <YAxis domain={[20, 45]} tick={{ fontSize: 11, fill: '#94A3B8' }} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                    <YAxis domain={[20, 45]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '12px' }}
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
                     />
                     <Line 
                       type="monotone" 
@@ -212,17 +212,17 @@ export const WellDetailsPage: React.FC = () => {
             {/* Chart 2: Temperature Trend */}
             <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-sm space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-                <h4 className="text-[14px] font-bold text-[#0F172A]">Temperature Trend</h4>
+                <h4 className="text-[13px] font-bold text-[#0F172A]">Temperature Trend</h4>
                 <span className="text-[11px] font-semibold text-[#EA580C]">°C</span>
               </div>
-              <div className="h-48">
+              <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={TREND_DATA}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94A3B8' }} />
-                    <YAxis domain={[70, 90]} tick={{ fontSize: 11, fill: '#94A3B8' }} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                    <YAxis domain={[70, 90]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '12px' }}
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
                     />
                     <Line 
                       type="monotone" 
@@ -239,17 +239,17 @@ export const WellDetailsPage: React.FC = () => {
             {/* Chart 3: Rod Load Trend */}
             <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-sm space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-                <h4 className="text-[14px] font-bold text-[#0F172A]">Rod Load Trend</h4>
+                <h4 className="text-[13px] font-bold text-[#0F172A]">Rod Load Trend</h4>
                 <span className="text-[11px] font-semibold text-[#8B5CF6]">kN</span>
               </div>
-              <div className="h-48">
+              <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={TREND_DATA}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94A3B8' }} />
-                    <YAxis domain={[4.0, 7.0]} tick={{ fontSize: 11, fill: '#94A3B8' }} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                    <YAxis domain={[4.0, 7.0]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '12px' }}
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
                     />
                     <Line 
                       type="monotone" 
@@ -257,6 +257,33 @@ export const WellDetailsPage: React.FC = () => {
                       stroke="#8B5CF6" 
                       strokeWidth={2.5} 
                       dot={{ r: 3.5, fill: '#8B5CF6' }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 4: Pump Efficiency Trend (The 4th Graph) */}
+            <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-sm space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+                <h4 className="text-[13px] font-bold text-[#0F172A]">Pump Efficiency</h4>
+                <span className="text-[11px] font-semibold text-[#10B981]">%</span>
+              </div>
+              <div className="h-44 min-h-[176px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={TREND_DATA}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                    <YAxis domain={[50, 90]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="pumpEff" 
+                      stroke="#10B981" 
+                      strokeWidth={2.5} 
+                      dot={{ r: 3.5, fill: '#10B981' }} 
                     />
                   </LineChart>
                 </ResponsiveContainer>
