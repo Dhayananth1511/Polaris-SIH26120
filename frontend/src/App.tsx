@@ -6,6 +6,7 @@ import { AppLayout }          from './components/layout/AppLayout';
 import { CommandCenterPage }  from './pages/CommandCenterPage';
 import { FieldStatusPage }    from './pages/FieldStatusPage';
 import { WellExplorerPage }   from './pages/WellExplorerPage';
+import { WellDetailsPage }    from './pages/WellDetailsPage';
 import { ProductionPage }     from './pages/ProductionPage';
 import { DigitalTwinPage }    from './pages/DigitalTwinPage';
 import { SimulationLabPage }  from './pages/SimulationLabPage';
@@ -41,6 +42,7 @@ export const App: React.FC = () => (
                 <Route path="command-center"   element={<CommandCenterPage />} />
                 <Route path="field-status"     element={<FieldStatusPage />} />
                 <Route path="well-explorer"    element={<WellExplorerPage />} />
+                <Route path="wells/:wellId"    element={<WellDetailsPage />} />
                 <Route path="production"       element={<ProductionPage />} />
                 <Route path="css-operations"   element={<CssOptimizerPage />} />
                 <Route path="srp-operations"   element={<SrpOptimizerPage />} />
@@ -48,7 +50,6 @@ export const App: React.FC = () => (
                 {/* Digital Twin & Simulation */}
                 <Route path="digital-twin"     element={<DigitalTwinPage tab="twin" />} />
                 <Route path="simulation-lab"   element={<SimulationLabPage />} />
-                <Route path="wells/:wellId"    element={<DigitalTwinPage tab="twin" />} />
 
                 {/* AI & Optimization */}
                 <Route path="joint-optimizer"  element={<OptimizationPage tab="joint" />} />

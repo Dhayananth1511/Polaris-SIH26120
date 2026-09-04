@@ -24,9 +24,19 @@ interface AuthState {
   clearError: () => void;
 }
 
+const defaultUser: User = {
+  id: 'OIL-PE-2847',
+  name: 'Rajan Sharma',
+  employeeId: 'OIL-PE-2847',
+  role: 'production_engineer',
+  designation: 'Senior Production Engineer',
+  department: 'Production Operations',
+  lastLogin: '04 Nov 2024, 14:32 IST',
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
+  user: defaultUser,
+  isAuthenticated: true,
   loginError: '',
 
   login: (employeeId, password, role) => {

@@ -197,15 +197,27 @@ export const WellExplorerPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate('/app/digital-twin');
-                          }}
-                          className="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#D32F2F] hover:text-white rounded text-[11px] font-bold text-[#334155] transition-colors"
-                        >
-                          Twin
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/app/wells/${well.id}`);
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#005C53] hover:text-white rounded text-[11px] font-bold text-[#334155] transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate('/app/digital-twin');
+                            }}
+                            className="px-2 py-1 bg-[#F1F5F9] hover:bg-[#D32F2F] hover:text-white rounded text-[11px] font-bold text-[#334155] transition-colors cursor-pointer"
+                          >
+                            Twin
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
