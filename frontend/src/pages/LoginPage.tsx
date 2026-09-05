@@ -5,15 +5,17 @@ import { useAuthStore } from '../store/authStore';
 import type { UserRole } from '../types';
 
 const ROLES: { value: UserRole; label: string; desc: string; iconTag: string }[] = [
-  { value: 'production_engineer', label: 'Production Engineer', desc: 'Real-time telemetry, what-if simulations, parameter optimization', iconTag: 'PE' },
-  { value: 'field_manager',       label: 'Field Manager',       desc: 'Operational governance, recommendation approvals, SCADA dispatch', iconTag: 'FM' },
-  { value: 'administrator',       label: 'Administrator',       desc: 'System health, model management, security audit logs', iconTag: 'ADM' },
+  { value: 'field_operator',      label: 'Field Operator',      desc: 'Real-time operational status, CSS cycles, SRP telemetry & fault flags', iconTag: 'OP' },
+  { value: 'production_engineer', label: 'Production / Reservoir Engineer', desc: 'Real-time telemetry, digital twin, simulations & parameter optimization', iconTag: 'PE' },
+  { value: 'field_manager',       label: 'Field Supervisor / Manager',       desc: 'Production forecasting, optimization recommendations & pending approvals', iconTag: 'FM' },
+  { value: 'administrator',       label: 'System Administrator',       desc: 'User roles, data connections, AI surrogate models & system health', iconTag: 'ADM' },
 ];
 
 const DEMO_CREDS: Record<UserRole, { id: string; name: string }> = {
+  field_operator:      { id: 'OIL-OP-4102', name: 'Amitav Patel' },
   production_engineer: { id: 'OIL-PE-2847', name: 'Rajan Sharma' },
-  field_manager:       { id: 'OIL-FM-1052', name: 'Dr. Vivek Mehra' },
-  administrator:       { id: 'OIL-ADM-001', name: 'System Admin' },
+  field_manager:       { id: 'OIL-FM-1052', name: 'Vikram Nair' },
+  administrator:       { id: 'OIL-ADM-001', name: 'Priya Menon' },
 };
 
 export const LoginPage: React.FC = () => {

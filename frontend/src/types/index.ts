@@ -1,5 +1,5 @@
 // ─── Auth / RBAC ──────────────────────────────────────────────────────────
-export type UserRole = 'production_engineer' | 'field_manager' | 'administrator';
+export type UserRole = 'field_operator' | 'production_engineer' | 'field_manager' | 'administrator';
 
 export interface User {
   id: string;
