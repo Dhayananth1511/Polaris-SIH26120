@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { HomePage }            from './pages/HomePage';
 import { LoginPage }           from './pages/LoginPage';
 import { AppLayout }           from './components/layout/AppLayout';
 import { CommandCenterPage }   from './pages/CommandCenterPage';
@@ -26,11 +25,22 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
+const RootRedirect: React.FC = () => {
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={user?.role === 'admin' ? "/app/admin/users" : "/app/command-center"} replace />;
+};
+
+const AppDefaultRedirect: React.FC = () => {
+  const { user } = useAuthStore();
+  return <Navigate to={user?.role === 'admin' ? "/app/admin/users" : "/app/command-center"} replace />;
+};
+
 export const App: React.FC = () => (
   <BrowserRouter>
     <Routes>
-      {/* Public */}
-      <Route path="/"      element={<HomePage />} />
+      {/* Root & Public */}
+      <Route path="/"      element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* Protected — Digital Operations Core */}
@@ -79,6 +89,7 @@ export const App: React.FC = () => (
                 <Route path="reports"          element={<ReportsPage />} />
 
                 {/* ── ADMINISTRATION ───────────────────────────────── */}
+                <Route path="admin"            element={<Navigate to="/app/admin/users" replace />} />
                 <Route path="admin/users"      element={<AdminManagementPage initialTab="users" />} />
                 <Route path="admin/data"       element={<AdminManagementPage initialTab="data" />} />
                 <Route path="admin/models"     element={<AdminManagementPage initialTab="models" />} />
@@ -88,7 +99,7 @@ export const App: React.FC = () => (
                 <Route path="admin/*"          element={<AdminManagementPage />} />
 
                 {/* Default redirect inside app */}
-                <Route path="*"               element={<Navigate to="/app/command-center" replace />} />
+                <Route path="*"               element={<AppDefaultRedirect />} />
               </Routes>
             </AppLayout>
           </PrivateRoute>

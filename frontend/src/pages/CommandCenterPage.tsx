@@ -36,7 +36,7 @@ export const CommandCenterPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-6 bg-[#F4F6F8] min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="p-6 md:p-8 space-y-6 bg-white min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       
       {/* ── Page Header ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#E2E8F0]">
@@ -416,60 +416,141 @@ export const CommandCenterPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Wells Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
+        {/* Wells Grid - Enlarged Layout & Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {filteredWells.map(well => {
             const isHighRisk = well.failureRisk === 'High' || well.failureRisk === 'Critical';
+            const isMedRisk = well.failureRisk === 'Medium';
             return (
               <div
                 key={well.id}
                 onClick={() => navigate(`/app/digital-twin?well=${well.id}`)}
-                className="p-4 rounded border border-[#E2E8F0] hover:border-[#D32F2F] bg-white hover:shadow-md transition-all cursor-pointer group"
+                className="p-6 rounded-xl border border-[#CBD5E1] hover:border-[#D32F2F] bg-white hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between relative overflow-hidden"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${
-                      well.status === 'Producing' ? 'bg-[#16A34A]' :
-                      well.status === 'Attention' ? 'bg-[#D97706]' :
-                      well.status === 'Critical' ? 'bg-[#DC2626]' : 'bg-[#64748B]'
-                    }`} />
-                    <span className="font-black text-[#0F172A] text-[16px] group-hover:text-[#D32F2F] transition-colors">
-                      {well.name}
+                {/* Top Accent Line */}
+                <div 
+                  className={`absolute top-0 left-0 right-0 h-1.5 transition-all group-hover:h-2 ${
+                    well.status === 'Producing' ? 'bg-[#16A34A]' :
+                    well.status === 'Attention' ? 'bg-[#D97706]' :
+                    well.status === 'Critical' ? 'bg-[#DC2626]' : 'bg-[#64748B]'
+                  }`} 
+                />
+
+                <div>
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between mb-4 pt-1">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-3.5 h-3.5 rounded-full flex-shrink-0 animate-pulse ${
+                          well.status === 'Producing' ? 'bg-[#16A34A]' :
+                          well.status === 'Attention' ? 'bg-[#D97706]' :
+                          well.status === 'Critical' ? 'bg-[#DC2626]' : 'bg-[#64748B]'
+                        }`} />
+                        <span className="font-black text-[#0F172A] text-xl md:text-2xl tracking-tight group-hover:text-[#D32F2F] transition-colors">
+                          {well.name}
+                        </span>
+                      </div>
+                      <span className="text-[12px] text-[#64748B] font-medium ml-6 block mt-0.5">
+                        {well.reservoir || 'Baghewala Sand Member A'}
+                      </span>
+                    </div>
+
+                    <span className={`text-[12px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs ${
+                      well.status === 'Producing' ? 'bg-[#E8F5E9] text-[#1B5E20] border border-[#C8E6C9]' :
+                      well.status === 'Attention' ? 'bg-[#FFF8E1] text-[#B78103] border border-[#FFE082]' :
+                      well.status === 'Critical' ? 'bg-[#FFEBEE] text-[#B71C1C] border border-[#FFCDD2]' : 'bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]'
+                    }`}>
+                      {well.status}
                     </span>
                   </div>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                    well.status === 'Producing' ? 'bg-[#E8F5E9] text-[#1B5E20]' :
-                    well.status === 'Attention' ? 'bg-[#FFF8E1] text-[#B78103]' :
-                    well.status === 'Critical' ? 'bg-[#FFEBEE] text-[#B71C1C]' : 'bg-[#F1F5F9] text-[#475569]'
-                  }`}>
-                    {well.status}
-                  </span>
+
+                  {/* 4 Large Metrics Micro-cards */}
+                  <div className="grid grid-cols-2 gap-3.5 my-4">
+                    {/* Oil Rate */}
+                    <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] group-hover:border-[#CBD5E1] transition-colors">
+                      <div className="flex items-center gap-1.5 text-[#64748B] text-[12px] font-bold uppercase tracking-wider mb-1">
+                        <Droplets className="w-4 h-4 text-[#0284C7]" />
+                        <span>Oil Rate</span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-[#0F172A]">{well.oilProduction}</span>
+                        <span className="text-[12px] font-bold text-[#64748B]">BOPD</span>
+                      </div>
+                    </div>
+
+                    {/* Reservoir Temp */}
+                    <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] group-hover:border-[#CBD5E1] transition-colors">
+                      <div className="flex items-center gap-1.5 text-[#64748B] text-[12px] font-bold uppercase tracking-wider mb-1">
+                        <Thermometer className="w-4 h-4 text-[#EA580C]" />
+                        <span>Reservoir T</span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-[#0F172A]">{well.temperature}</span>
+                        <span className="text-[12px] font-bold text-[#64748B]">°C</span>
+                      </div>
+                    </div>
+
+                    {/* Rod Load */}
+                    <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] group-hover:border-[#CBD5E1] transition-colors">
+                      <div className="flex items-center gap-1.5 text-[#64748B] text-[12px] font-bold uppercase tracking-wider mb-1">
+                        <Sliders className="w-4 h-4 text-[#7C3AED]" />
+                        <span>Rod Load</span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-[#0F172A]">{well.rodLoad}</span>
+                        <span className="text-[12px] font-bold text-[#64748B]">kN</span>
+                      </div>
+                    </div>
+
+                    {/* Pump Efficiency */}
+                    <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] group-hover:border-[#CBD5E1] transition-colors">
+                      <div className="flex items-center gap-1.5 text-[#64748B] text-[12px] font-bold uppercase tracking-wider mb-1">
+                        <Gauge className="w-4 h-4 text-[#16A34A]" />
+                        <span>Pump Eff.</span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-[#0F172A]">{well.pumpEfficiency}</span>
+                        <span className="text-[12px] font-bold text-[#64748B]">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pump Health Progress Bar */}
+                  <div className="space-y-1.5 my-3">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-[#64748B] uppercase tracking-wider">Mechanical Health</span>
+                      <span className={well.pumpEfficiency >= 70 ? 'text-[#16A34A]' : well.pumpEfficiency >= 60 ? 'text-[#D97706]' : 'text-[#DC2626]'}>
+                        {well.pumpEfficiency}% Operating Index
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-[#E2E8F0] rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          well.pumpEfficiency >= 70 ? 'bg-[#16A34A]' : well.pumpEfficiency >= 60 ? 'bg-[#D97706]' : 'bg-[#DC2626]'
+                        }`} 
+                        style={{ width: `${Math.min(100, well.pumpEfficiency)}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[12px] py-2 border-y border-[#F8FAFC]">
-                  <div>
-                    <span className="text-[#94A3B8] block">Oil Rate</span>
-                    <span className="font-bold text-[#1E293B] text-[13px]">{well.oilProduction} BOPD</span>
+                {/* Card Footer */}
+                <div className="mt-4 pt-3.5 border-t border-[#F1F5F9] flex items-center justify-between text-[12px]">
+                  <div className="flex items-center gap-1.5 font-bold text-[#475569]">
+                    <Flame className="w-4 h-4 text-[#EA580C]" />
+                    <span>{well.cssPhase}</span>
                   </div>
-                  <div>
-                    <span className="text-[#94A3B8] block">Reservoir T</span>
-                    <span className="font-bold text-[#1E293B] text-[13px]">{well.temperature} °C</span>
-                  </div>
-                  <div>
-                    <span className="text-[#94A3B8] block">Rod Load</span>
-                    <span className="font-bold text-[#1E293B] text-[13px]">{well.rodLoad} kN</span>
-                  </div>
-                  <div>
-                    <span className="text-[#94A3B8] block">Pump Eff.</span>
-                    <span className="font-bold text-[#1E293B] text-[13px]">{well.pumpEfficiency}%</span>
-                  </div>
-                </div>
 
-                <div className="mt-3 flex items-center justify-between text-[11px]">
-                  <span className="text-[#64748B]">{well.cssPhase}</span>
-                  <span className={`font-semibold ${isHighRisk ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
-                    Risk: {well.failureRisk}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-md font-bold text-[11px] tracking-wide ${
+                      isHighRisk ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]' : 
+                      isMedRisk ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]' : 
+                      'bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0]'
+                    }`}>
+                      Risk: {well.failureRisk}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#D32F2F] group-hover:translate-x-0.5 transition-all" />
+                  </div>
                 </div>
               </div>
             );

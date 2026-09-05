@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, Database, Cpu, Activity, Settings, Shield, 
   CheckCircle2, AlertTriangle, RefreshCw, Key, HardDrive, 
@@ -11,14 +12,27 @@ interface AdminPageProps {
 }
 
 export const AdminManagementPage: React.FC<AdminPageProps> = ({ initialTab = 'users' }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'users' | 'data' | 'models' | 'health' | 'config' | 'audit'>(initialTab);
+
+  // Sync activeTab whenever route or initialTab changes
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleTabChange = (key: 'users' | 'data' | 'models' | 'health' | 'config' | 'audit') => {
+    setActiveTab(key);
+    navigate(`/app/admin/${key}`);
+  };
 
   // Users Management State
   const [usersList, setUsersList] = useState([
-    { id: '1', empId: 'OIL-OP-4102', name: 'Amitav Patel', role: 'Field Operator', dept: 'Field Operations', status: 'Active', lastActive: '5 min ago' },
-    { id: '2', empId: 'OIL-PE-2847', name: 'Rajan Sharma', role: 'Production / Reservoir Engineer', dept: 'Production Engineering', status: 'Active', lastActive: 'Now' },
-    { id: '3', empId: 'OIL-FM-1052', name: 'Vikram Nair', role: 'Field Supervisor / Manager', dept: 'Field Management', status: 'Active', lastActive: '12 min ago' },
-    { id: '4', empId: 'OIL-ADM-001', name: 'Priya Menon', role: 'System Administrator', dept: 'Information Systems', status: 'Active', lastActive: 'Now' },
+    { id: '1', empId: 'OIL-OP-4102', name: 'Amitav Patel', role: 'Operator', dept: 'Field Operations', status: 'Active', lastActive: '5 min ago' },
+    { id: '2', empId: 'OIL-ADM-001', name: 'Priya Menon',  role: 'Admin',    dept: 'Information Systems', status: 'Active', lastActive: 'Now' },
+    { id: '3', empId: 'OIL-OP-2847', name: 'Rajan Sharma', role: 'Operator', dept: 'Field Operations', status: 'Active', lastActive: '15 min ago' },
+    { id: '4', empId: 'OIL-ADM-002', name: 'Vikram Nair',  role: 'Admin',    dept: 'Field IT Systems', status: 'Active', lastActive: '1 hour ago' },
   ]);
 
   // Models State
@@ -39,7 +53,7 @@ export const AdminManagementPage: React.FC<AdminPageProps> = ({ initialTab = 'us
   ]);
 
   return (
-    <div className="p-6 md:p-8 space-y-6 bg-[#F4F6F8] min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="p-6 md:p-8 space-y-6 bg-white min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       
       {/* ── Page Header ─────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#E2E8F0]">
@@ -76,7 +90,7 @@ export const AdminManagementPage: React.FC<AdminPageProps> = ({ initialTab = 'us
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => handleTabChange(tab.key as any)}
             className={`flex items-center gap-2 px-4 py-2 font-bold rounded-t transition-all cursor-pointer ${
               activeTab === tab.key
                 ? 'border-b-2 border-[#D32F2F] text-[#D32F2F] bg-white shadow-xs'
