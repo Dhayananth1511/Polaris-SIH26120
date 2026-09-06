@@ -2,15 +2,23 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Sliders, Activity, Check, RotateCcw, ArrowRight, Gauge, 
-  CheckCircle2, AlertTriangle, ShieldCheck, Zap
+  CheckCircle2, AlertTriangle, ShieldCheck, Zap, Thermometer, ShieldAlert
 } from 'lucide-react';
-import { wellsApi, approvalsApi, type BackendWell, type BackendSRPReading } from '../services/api';
+import { 
+  wellsApi, 
+  approvalsApi, 
+  type BackendWell, 
+  type BackendSRPReading,
+  type ViscosityProfile,
+} from '../services/api';
+import { DynamometerCardViewer } from '../components/ui/DynamometerCardViewer';
 
 export const SrpOptimizerPage: React.FC = () => {
   const navigate = useNavigate();
   const [wells, setWells] = useState<BackendWell[]>([]);
   const [selectedWell, setSelectedWell] = useState('BGW-001');
   const [latestSrp, setLatestSrp] = useState<BackendSRPReading | null>(null);
+  const [viscosityProfile, setViscosityProfile] = useState<ViscosityProfile | null>(null);
 
   // Baseline values from DB
   const [baseSpm, setBaseSpm] = useState<number>(5.96);
@@ -59,6 +67,12 @@ export const SrpOptimizerPage: React.FC = () => {
         setStrokeLength(Math.min(st, 66));
         setVfd(36);
         setStatusMessage(`Loaded latest telemetry for ${wellId}: ${s} SPM, ${rl.toFixed(1)} kN rod load, ${Math.round(eff)}% efficiency.`);
+      }
+
+      // Also fetch thermal viscosity profile
+      const viscRes = await wellsApi.getViscosityProfile(wellId);
+      if (viscRes.success) {
+        setViscosityProfile(viscRes.data);
       }
     } catch (err) {
       console.error('Error fetching well SRP data:', err);
@@ -196,7 +210,46 @@ export const SrpOptimizerPage: React.FC = () => {
               onChange={(e) => setSpm(Number(e.target.value))}
               className="w-full h-2 bg-[#E2E8F0] rounded-lg appearance-none cursor-pointer accent-[#005C53]"
             />
+
+            {/* Rod Floating Interlock Warning */}
+            {viscosityProfile && spm > viscosityProfile.spmCrit && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1.5 animate-fadeIn">
+                <div className="flex items-center justify-between text-red-800 font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-red-600" />
+                    <span>CRITICAL: Rod Floating Hazard Detected</span>
+                  </span>
+                  <button
+                    onClick={() => setSpm(viscosityProfile.spmSafe)}
+                    className="px-2 py-0.5 bg-red-600 text-white rounded text-[11px] font-bold hover:bg-red-700 cursor-pointer"
+                  >
+                    Auto-Clamp to {viscosityProfile.spmSafe} SPM
+                  </button>
+                </div>
+                <p className="text-red-700">
+                  Requested {spm} SPM exceeds critical speed ({viscosityProfile.spmCrit} SPM). At current crude viscosity ({viscosityProfile.currentViscosityCP} cP), buoyant drag will cause rod to hang on downstroke and trigger severe impact pound.
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Heavy Oil Viscosity Diagnostic Ribbon */}
+          {viscosityProfile && (
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Thermometer className="w-4 h-4 text-amber-600" />
+                <span className="text-slate-600">BHT: <strong>{viscosityProfile.currentTempC}°C</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-blue-600" />
+                <span className="text-slate-600">Crude Viscosity: <strong>{viscosityProfile.currentViscosityCP} cP</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-slate-600">Safe Limit: <strong>&le; {viscosityProfile.spmSafe} SPM</strong></span>
+              </div>
+            </div>
+          )}
 
           {/* Parameter 2: Stroke Length (in) */}
           <div className="space-y-2">
@@ -329,6 +382,14 @@ export const SrpOptimizerPage: React.FC = () => {
           </div>
         </div>
 
+      </div>
+
+      {/* ── Dynamometer Card Interactive Diagnosis Section ──────────────── */}
+      <div className="pt-4 border-t border-[#E2E8F0]">
+        <DynamometerCardViewer
+          wellId={selectedWell}
+          onOptimizeClick={handleRunOptimization}
+        />
       </div>
 
     </div>

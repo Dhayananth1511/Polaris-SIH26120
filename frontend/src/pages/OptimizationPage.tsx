@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Activity, AlertCircle, ArrowRight, CheckCircle2, ChevronRight, 
   Cpu, FileCheck, Filter, Gauge, Layers, RefreshCw, Send, ShieldCheck, 
-  Sliders, TrendingUp, Users, Zap, Check, X, RotateCcw, Loader2
+  Sliders, TrendingUp, Users, Zap, Check, X, RotateCcw, Loader2, Calendar, Thermometer, ShieldAlert
 } from 'lucide-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
+} from 'recharts';
 import { 
   wellsApi, WellItem, 
   simulationApi, SimulationPreset, 
-  approvalsApi, ApprovalItem 
+  approvalsApi, ApprovalItem,
+  PostCssScheduleResponse,
 } from '../services/api';
 
 interface OptimizationPageProps {
@@ -32,6 +36,8 @@ export const OptimizationPage: React.FC<OptimizationPageProps> = ({ tab = 'joint
   const [selectedWell, setSelectedWell] = useState('BGW-001');
   const [preset, setPreset] = useState<SimulationPreset | null>(null);
   const [loadingPreset, setLoadingPreset] = useState(false);
+  const [postCssSchedule, setPostCssSchedule] = useState<PostCssScheduleResponse | null>(null);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
 
   // Approval Subtabs & State
   const [approvalSubTab, setApprovalSubTab] = useState<'pending' | 'approved' | 'rejected' | 'audit'>('pending');
@@ -83,6 +89,14 @@ export const OptimizationPage: React.FC<OptimizationPageProps> = ({ tab = 'joint
       }
     }).catch(err => console.error('Error fetching preset:', err))
       .finally(() => setLoadingPreset(false));
+
+    setLoadingSchedule(true);
+    simulationApi.getPostCssSchedule(selectedWell, 60).then(res => {
+      if (res && res.success && res.data) {
+        setPostCssSchedule(res.data);
+      }
+    }).catch(err => console.error('Error fetching schedule:', err))
+      .finally(() => setLoadingSchedule(false));
   }, [selectedWell]);
 
   // Load approvals
@@ -818,6 +832,162 @@ export const OptimizationPage: React.FC<OptimizationPageProps> = ({ tab = 'joint
               </div>
             </div>
           </div>
+
+          {/* ── 60-Day Post-CSS Dynamic Staging Schedule (SIH Core Innovation) ── */}
+          {postCssSchedule && (
+            <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#F1F5F9]">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+                    <span className="text-[12px] font-bold tracking-wider text-[#D32F2F] uppercase">
+                      Baghewala Thermal EOR · Time-Coupled Staging
+                    </span>
+                  </div>
+                  <h4 className="text-xl font-black text-[#0F172A] tracking-tight">
+                    60-Day Dynamic Post-CSS Pumping Schedule ({selectedWell})
+                  </h4>
+                  <p className="text-[13px] text-[#64748B]">
+                    Automated reservoir thermal dissipation modeling, Walther heavy crude viscosity tracking, and anti-floating SPM derating
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#F0FDF4] border border-[#BBF7D0] px-3.5 py-1.5 rounded-lg text-right">
+                    <div className="text-[11px] text-[#166534] font-semibold">Incremental Oil</div>
+                    <div className="text-base font-black text-[#15803D]">{postCssSchedule.summary.incrementalOilPct}</div>
+                  </div>
+                  <div className="bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-1.5 rounded-lg text-right">
+                    <div className="text-[11px] text-[#1E40AF] font-semibold">SOR Reduction</div>
+                    <div className="text-base font-black text-[#2563EB]">{postCssSchedule.summary.sorReductionPct}</div>
+                  </div>
+                  <div className="bg-[#FFFBEB] border border-[#FDE68A] px-3.5 py-1.5 rounded-lg text-right">
+                    <div className="text-[11px] text-[#92400E] font-semibold">Failures Prevented</div>
+                    <div className="text-base font-black text-[#D97706]">{postCssSchedule.summary.rodFailuresPrevented} Events</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3-Phase Operational Staging Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {postCssSchedule.summary.stages.map((stg, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`p-4 rounded-lg border space-y-2.5 ${
+                      idx === 0 
+                        ? 'bg-amber-50/50 border-amber-200' 
+                        : idx === 1 
+                        ? 'bg-blue-50/50 border-blue-200' 
+                        : 'bg-indigo-50/50 border-indigo-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-black text-[#0F172A]">{stg.name}</span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-white text-[#475569] shadow-xs">
+                        {stg.days}
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-[#475569] space-y-1">
+                      <div className="flex justify-between">
+                        <span>Thermal Envelope:</span>
+                        <strong className="text-[#0F172A]">{stg.tempRange}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Heavy Oil Viscosity:</span>
+                        <strong className="text-[#0F172A]">{stg.viscosityRange}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Recommended Speed:</span>
+                        <strong className="text-[#15803D] font-black">{stg.spmRange}</strong>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] pt-1 border-t border-slate-200/60 leading-relaxed">
+                      {stg.action}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* 60-Day Interactive Trajectory Chart */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[13px] font-bold text-[#475569]">
+                  <span>Reservoir Cooldown, Viscosity Rise &amp; Dynamic SPM Derating Trajectory</span>
+                  <span className="text-[12px] text-[#64748B] font-normal">Day 1 (Steam Soak Release) &rarr; Day 60 (Cycle Cutoff)</span>
+                </div>
+                <div className="h-72 w-full bg-slate-50/50 rounded-lg p-3 border border-[#E2E8F0]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={postCssSchedule.dailyData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                      <XAxis dataKey="day" label={{ value: 'Days Post-Steam', position: 'insideBottomRight', offset: -5 }} stroke="#64748B" fontSize={11} />
+                      <YAxis yAxisId="left" stroke="#64748B" fontSize={11} label={{ value: 'Temp (°C) / SPM (×10)', angle: -90, position: 'insideLeft' }} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#0284C7" fontSize={11} label={{ value: 'Oil Rate (BPD)', angle: 90, position: 'insideRight' }} />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload;
+                            return (
+                              <div className="bg-slate-900 text-white p-3 rounded-lg shadow-lg text-xs space-y-1">
+                                <div className="font-bold border-b border-slate-700 pb-1 text-amber-300">
+                                  Day {d.day} — {d.phase}
+                                </div>
+                                <div>Reservoir Temp: <strong>{d.temperatureC}°C</strong></div>
+                                <div>Viscosity: <strong>{d.viscosityCP} cP</strong></div>
+                                <div>Critical Floating SPM: <strong className="text-red-400">{d.spmCrit} SPM</strong></div>
+                                <div>Recommended Setpoint: <strong className="text-emerald-400">{d.recommendedSPM} SPM</strong> ({d.recommendedVFDHz} Hz)</div>
+                                <div>Oil Production: <strong className="text-blue-300">{d.oilRateBpd} BPD</strong></div>
+                                <div>Floating Risk: <strong className={d.floatingRiskPct > 30 ? 'text-red-400' : 'text-emerald-300'}>{d.floatingRiskPct}%</strong></div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
+                      <Line yAxisId="left" type="monotone" dataKey="temperatureC" name="Reservoir Temp (°C)" stroke="#F59E0B" strokeWidth={2.5} dot={false} />
+                      <Line yAxisId="left" type="monotone" dataKey="spmCrit" name="Critical Floating SPM" stroke="#EF4444" strokeWidth={1.8} strokeDasharray="4 4" dot={false} />
+                      <Line yAxisId="left" type="stepAfter" dataKey="recommendedSPM" name="Recommended SPM Setpoint" stroke="#10B981" strokeWidth={2.5} dot={false} />
+                      <Line yAxisId="right" type="monotone" dataKey="oilRateBpd" name="Oil Rate (BPD)" stroke="#0284C7" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Submit Staging Schedule Button */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-[#F1F5F9]">
+                <p className="text-[12px] text-[#64748B]">
+                  Pumping schedule automatically bounds rod string within safe API RP 11L fatigue limits throughout heavy crude cooldown.
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      await approvalsApi.createApproval({
+                        well_id: selectedWell,
+                        recommendation: `60-Day Coordinated Post-CSS Staging Schedule (${selectedWell})`,
+                        impact: `${postCssSchedule.summary.incrementalOilPct} Cumulative Oil, ${postCssSchedule.summary.sorReductionPct} SOR`,
+                        submitted_by: 'Coupled CSS-SRP Digital Twin Simulator',
+                        comment: 'Approved 3-stage dynamic pumping profile prevents rod floating as crude cools from 185°C to 48°C.',
+                        setpoints: {
+                          phase1_spm: 7.0,
+                          phase2_spm: 5.2,
+                          phase3_spm: 4.2,
+                          days: 60,
+                        }
+                      });
+                      setActionSuccess(`Dispatched 60-Day Staging Schedule for ${selectedWell} to Engineering Approvals queue!`);
+                      fetchApprovals();
+                      setTimeout(() => setActionSuccess(null), 3500);
+                    } catch (e) {
+                      console.error('Failed to submit staging schedule:', e);
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-[#005C53] hover:bg-[#004B44] text-white rounded text-[13px] font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Dispatch 60-Day Schedule to Approvals &rarr;</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

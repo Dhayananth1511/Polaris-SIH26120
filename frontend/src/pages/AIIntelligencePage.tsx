@@ -2,24 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, AlertTriangle, Eye, Brain, CheckCircle2, 
-  ArrowRight, ShieldAlert, Sliders, ChevronDown, Loader2, Calendar, Wrench
+  ArrowRight, ShieldAlert, Sliders, ChevronDown, Loader2, Calendar, Wrench,
+  Activity, Cpu, Zap
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer 
+  Tooltip, ResponsiveContainer, Area, AreaChart, BarChart, Bar, Cell,
+  ReferenceLine
 } from 'recharts';
 import { 
   wellsApi, WellItem, 
   simulationApi, SimulationPreset, 
-  FailureEvent 
+  FailureEvent,
+  aiApi,
+  type ForecastResult,
+  type AnomalyScanResult,
+  type FailureRiskResult,
+  type ShapValue,
 } from '../services/api';
 
 interface AIIntelligencePageProps {
   module?: 'forecast' | 'failure' | 'anomaly' | 'explain';
 }
 
-// Key Factors SHAP Data
-const SHAP_FACTORS = [
+// Static SHAP factors — used as loading placeholder only
+const SHAP_FACTORS_FALLBACK = [
   { name: 'Steam Volume', value: 0.28, widthPct: 100 },
   { name: 'Temperature',  value: 0.24, widthPct: 85.7 },
   { name: 'Rod Load',     value: 0.18, widthPct: 64.3 },
@@ -40,6 +47,13 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
   const [failureEvents, setFailureEvents] = useState<FailureEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── Live ML state ───────────────────────────────────────────────────────────
+  const [xgbForecast, setXgbForecast]     = useState<ForecastResult | null>(null);
+  const [anomalyScan, setAnomalyScan]     = useState<AnomalyScanResult | null>(null);
+  const [failureRisk, setFailureRisk]     = useState<FailureRiskResult | null>(null);
+  const [shapValues,  setShapValues]      = useState<ShapValue[]>([]);
+  const [mlLoading,   setMlLoading]       = useState(false);
+
   // Load wells
   useEffect(() => {
     wellsApi.listWells().then(res => {
@@ -50,10 +64,11 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
     }).catch(err => console.error('Failed to load wells:', err));
   }, []);
 
-  // Load well data & production history
+  // Load well data & production history + ML data
   useEffect(() => {
     if (!selectedWell) return;
     setLoading(true);
+    setMlLoading(true);
     Promise.all([
       wellsApi.getProduction(selectedWell, 14),
       wellsApi.getFailureEvents(selectedWell),
@@ -66,18 +81,14 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
 
       const prod = prodRes?.data || [];
       if (prod && prod.length > 0) {
-        // Map last 7 real days and project 3 future days
         const lastPoints = prod.slice(-7);
         const mapped: Array<{ date: string; actual: number | null; predicted: number | null }> = lastPoints.map((item, idx) => {
           const d = new Date(item.date);
           const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
           const actual = Number(item.oilRate.toFixed(1));
-          // Slightly smoothed model forecast
           const predicted = idx >= 3 ? Number((actual * 1.04).toFixed(1)) : null;
           return { date: dateStr, actual, predicted };
         });
-
-        // Add 2 forward-looking predicted projection points
         const lastActual = lastPoints[lastPoints.length - 1]?.oilRate || 30;
         mapped.push(
           { date: '+3 Days', actual: null, predicted: Number((lastActual * 1.08).toFixed(1)) },
@@ -85,7 +96,6 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
         );
         setForecastData(mapped);
       } else {
-        // Fallback if no records in production table for this well
         setForecastData([
           { date: '1 Oct', actual: 21.2, predicted: null },
           { date: '8 Oct', actual: 23.4, predicted: 23.0 },
@@ -96,7 +106,25 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
       }
     }).catch(err => console.error('Failed to load intelligence data:', err))
       .finally(() => setLoading(false));
+
+    // ── Parallel ML data fetch ───────────────────────────────────────────────
+    Promise.all([
+      aiApi.forecast(selectedWell, 14).catch(() => null),
+      aiApi.anomalyScan(selectedWell, 30).catch(() => null),
+      aiApi.failureRisk(selectedWell, 30).catch(() => null),
+      aiApi.explain(selectedWell).catch(() => null),
+    ]).then(([fRes, aRes, rRes, eRes]) => {
+      if (fRes?.success && fRes.data) setXgbForecast(fRes.data);
+      if (aRes?.success && aRes.data) setAnomalyScan(aRes.data);
+      if (rRes?.success && rRes.data) setFailureRisk(rRes.data);
+      if (eRes?.success && eRes.data?.shapValues?.length) {
+        setShapValues(eRes.data.shapValues);
+      }
+    }).catch(err => console.error('ML fetch error:', err))
+      .finally(() => setMlLoading(false));
   }, [selectedWell]);
+
+
 
   const latestPredicted = forecastData[forecastData.length - 1]?.predicted || 31.8;
 
@@ -288,7 +316,14 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
 
               {/* Horizontal Bar Chart (Matching Panel 6) */}
               <div className="space-y-3.5">
-                {SHAP_FACTORS.map((factor, idx) => (
+                {(shapValues && shapValues.length > 0
+                  ? shapValues.map(s => ({
+                      name: s.feature.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+                      value: Math.abs(s.shapValue),
+                      widthPct: Math.min(100, Math.round(s.pctContrib || 10))
+                    }))
+                  : SHAP_FACTORS_FALLBACK
+                ).map((factor, idx) => (
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-[12px]">
                       <span className="font-semibold text-[#334155]">{factor.name}</span>
@@ -421,56 +456,150 @@ export const AIIntelligencePage: React.FC<AIIntelligencePageProps> = ({ module =
         <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6 space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-[#F1F5F9]">
             <div>
-              <h3 className="text-lg font-bold text-[#0F172A]">Real-Time Sensor Anomaly Detection</h3>
-              <p className="text-[12px] text-[#64748B]">Autoencoder reconstruction error on downhole telemetry</p>
+              <h3 className="text-lg font-bold text-[#0F172A]">Isolation Forest Anomaly Detection</h3>
+              <p className="text-[12px] text-[#64748B]">Scikit-Learn Isolation Forest (contamination=5%) on downhole telemetry — {selectedWell}</p>
             </div>
-            <span className="px-3 py-1 bg-[#FEF3C7] text-[#D97706] font-bold text-[12px] rounded">
-              1 Anomaly Flagged
-            </span>
+            {mlLoading ? (
+              <span className="flex items-center gap-1 px-3 py-1 bg-[#F1F5F9] text-[#64748B] font-bold text-[12px] rounded">
+                <Loader2 className="w-3 h-3 animate-spin" /> Scanning…
+              </span>
+            ) : (
+              <span className={`px-3 py-1 font-bold text-[12px] rounded ${
+                (anomalyScan?.anomalyCount ?? 0) > 0
+                  ? 'bg-[#FEE2E2] text-[#DC2626]'
+                  : 'bg-[#DCFCE7] text-[#16A34A]'
+              }`}>
+                {anomalyScan ? `${anomalyScan.anomalyCount} Anomal${anomalyScan.anomalyCount === 1 ? 'y' : 'ies'} / ${anomalyScan.totalReadings} Readings` : 'No data'}
+              </span>
+            )}
           </div>
 
-          <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-2 text-[13px]">
-            <div className="flex justify-between">
-              <span className="font-semibold text-[#475569]">Pattern Recognized:</span>
-              <span className="font-bold text-[#DC2626]">Severe Fluid Pound Pattern</span>
+          {/* Stats row */}
+          {anomalyScan && (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-center">
+                <span className="text-[11px] font-bold text-[#64748B] uppercase block">Anomaly Rate</span>
+                <span className={`text-2xl font-black mt-1 block ${
+                  anomalyScan.anomalyRate > 0.1 ? 'text-[#DC2626]' : anomalyScan.anomalyRate > 0.05 ? 'text-[#D97706]' : 'text-[#16A34A]'
+                }`}>{(anomalyScan.anomalyRate * 100).toFixed(1)}%</span>
+                <span className="text-[11px] text-[#64748B]">of {anomalyScan.totalReadings} readings</span>
+              </div>
+              <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-center">
+                <span className="text-[11px] font-bold text-[#64748B] uppercase block">Flagged</span>
+                <span className="text-2xl font-black text-[#D97706] mt-1 block">{anomalyScan.anomalyCount}</span>
+                <span className="text-[11px] text-[#64748B]">anomalous points</span>
+              </div>
+              <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-center">
+                <span className="text-[11px] font-bold text-[#64748B] uppercase block">Method</span>
+                <span className="text-[14px] font-black text-[#0F172A] mt-1 block">IForest</span>
+                <span className="text-[11px] text-[#64748B]">n_estimators=100</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="font-semibold text-[#475569]">Root Cause:</span>
-              <span className="font-bold text-[#0F172A]">High heavy oil viscosity at intake</span>
+          )}
+
+          {/* Top anomalous readings */}
+          {anomalyScan && anomalyScan.readings.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-[13px] font-bold text-[#0F172A]">Top Anomalous Readings (ranked by score)</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="text-[#64748B] font-bold border-b border-[#E2E8F0]">
+                      <th className="text-left py-2 px-2">Timestamp</th>
+                      <th className="text-left py-2 px-2">Anomaly Score</th>
+                      <th className="text-left py-2 px-2">Temp (°C)</th>
+                      <th className="text-left py-2 px-2">Vibration</th>
+                      <th className="text-left py-2 px-2">Motor (kW)</th>
+                      <th className="text-left py-2 px-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F1F5F9]">
+                    {anomalyScan.readings.slice(0, 8).map((r, i) => (
+                      <tr key={i} className={r.isAnomaly ? 'bg-[#FFF5F5]' : 'hover:bg-[#F8FAFC]'}>
+                        <td className="py-2 px-2 text-[#475569]">{r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '--'}</td>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 bg-[#E2E8F0] rounded-full">
+                              <div className="h-full rounded-full" style={{ width: `${r.anomalyScore * 100}%`, backgroundColor: r.isAnomaly ? '#DC2626' : '#16A34A' }} />
+                            </div>
+                            <span className="font-bold">{(r.anomalyScore * 100).toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td className="py-2 px-2">{r.features.reservoir_temperature_c?.toFixed(1) ?? '--'}</td>
+                        <td className="py-2 px-2">{r.features.vibration_mm_s?.toFixed(2) ?? '--'}</td>
+                        <td className="py-2 px-2">{r.features.motor_power_kw?.toFixed(1) ?? '--'}</td>
+                        <td className="py-2 px-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            r.isAnomaly ? 'bg-[#FEE2E2] text-[#DC2626]' : 'bg-[#DCFCE7] text-[#16A34A]'
+                          }`}>{r.isAnomaly ? 'ANOMALY' : 'Normal'}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="font-semibold text-[#475569]">Recommended Action:</span>
-              <span className="font-bold text-[#16A34A]">Reduce SPM to 5.1 and adjust thermal soak</span>
+          )}
+
+          {!anomalyScan && !mlLoading && (
+            <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-[13px] text-[#64748B]">
+              No telemetry data available for anomaly scan. Ensure the database is seeded.
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* ── TAB 4: EXPLAINABILITY ─────────────────────────────────── */}
       {activeModule === 'explain' && (
         <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6 space-y-6">
-          <div className="pb-3 border-b border-[#F1F5F9]">
-            <h3 className="text-lg font-bold text-[#0F172A]">Explainable AI (XAI) Model Insights</h3>
-            <p className="text-[12px] text-[#64748B]">Global and local feature attributions across 23 Baghewala wells</p>
+          <div className="pb-3 border-b border-[#F1F5F9] flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-[#0F172A]">SHAP Feature Attribution</h3>
+              <p className="text-[12px] text-[#64748B]">
+                {shapValues.length > 0
+                  ? `SHAP TreeExplainer — XGBoost Production Model — ${selectedWell}`
+                  : 'Global and local feature attributions across 23 Baghewala wells'}
+              </p>
+            </div>
+            {mlLoading && <Loader2 className="w-4 h-4 animate-spin text-[#64748B]" />}
           </div>
 
+          {/* Live SHAP bars */}
           <div className="space-y-3 text-[13px]">
-            {[
-              { feature: 'Steam Volume (ton)', impact: '+0.28', desc: 'Higher injection enthalpy lowers heavy oil viscosity from 22,000 cP down to 430 cP' },
-              { feature: 'Reservoir Temperature (°C)', impact: '+0.24', desc: 'Direct thermal heating of porous sand matrix accelerates drainage velocity' },
-              { feature: 'Rod Load (kN)', impact: '-0.18', desc: 'Excessive rod tension induces pump slippage and rod stretch energy loss' },
-              { feature: 'SPM Speed', impact: '+0.12', desc: 'Optimized stroke speed allows full barrel fill without fluid pound shock' },
-            ].map((item, idx) => (
-              <div key={idx} className="p-3.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] flex items-center justify-between">
-                <div>
-                  <strong className="text-[#0F172A] block">{item.feature}</strong>
-                  <span className="text-[12px] text-[#64748B]">{item.desc}</span>
+            {(shapValues.length > 0
+              ? shapValues.sort((a, b) => b.absContrib - a.absContrib)
+              : SHAP_FACTORS_FALLBACK.map(f => ({ feature: f.name, shapValue: f.value, absContrib: f.value, pctContrib: f.widthPct }))
+            ).map((item, idx) => {
+              const maxPct = shapValues.length > 0 ? Math.max(...shapValues.map(s => s.absContrib)) : 0.28;
+              const barWidth = Math.min(100, (item.absContrib / maxPct) * 100);
+              const isPositive = item.shapValue >= 0;
+              return (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#0F172A] capitalize">{item.feature.replace(/_/g, ' ')}</span>
+                    <span className={`font-black text-[13px] ${isPositive ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
+                      {isPositive ? '+' : ''}{item.shapValue.toFixed(3)}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-[#F1F5F9] rounded-full">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${barWidth}%`,
+                        backgroundColor: isPositive ? '#16A34A' : '#DC2626',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-[#64748B]">{item.pctContrib.toFixed(1)}% contribution to prediction</span>
                 </div>
-                <span className={`text-[15px] font-black ${item.impact.startsWith('+') ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
-                  {item.impact}
-                </span>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+
+          <div className="p-3 bg-[#F0FDF4] rounded-lg border border-[#BBF7D0] text-[12px] text-[#166534]">
+            <strong>How to read SHAP:</strong> Positive values push production prediction higher;
+            negative values pull it lower. Magnitude indicates strength of influence.
+            {shapValues.length > 0 && <span className="ml-1 font-semibold">Values computed via SHAP TreeExplainer on live XGBoost model.</span>}
           </div>
         </div>
       )}

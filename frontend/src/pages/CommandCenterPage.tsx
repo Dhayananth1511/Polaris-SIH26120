@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { wellsApi, alertsApi, type BackendWell, type BackendAlert } from '../services/api';
 import { FieldMapBaghewala } from '../components/map/FieldMapBaghewala';
+import { EdgeStreamBar } from '../components/ui/EdgeStreamBar';
 
 export const CommandCenterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -172,6 +173,12 @@ export const CommandCenterPage: React.FC = () => {
         </div>
 
       </div>
+
+      {/* ── Live Edge IoT Telemetry Stream & Anomaly Injector (SIH Demo) ── */}
+      <EdgeStreamBar 
+        selectedWell={wells[0]?.id || 'BGW-001'} 
+        onAnomalyInjected={() => fetchAll()} 
+      />
 
       {/* ── 4 Key Performance Metrics Row ───────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

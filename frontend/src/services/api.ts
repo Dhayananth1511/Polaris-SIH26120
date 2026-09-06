@@ -392,6 +392,25 @@ export const wellsApi = {
       `/wells/field/production-trend?days=${days}`
     );
   },
+
+  getDynamometerCards: async (wellId: string, cycleId?: string, limit = 20) => {
+    const qs = cycleId ? `?cycle_id=${encodeURIComponent(cycleId)}&limit=${limit}` : `?limit=${limit}`;
+    return request<{ success: boolean; data: BackendDynamometerCard[]; total: number }>(
+      `/wells/${wellId}/dynamometer-cards${qs}`
+    );
+  },
+
+  getLatestDynamometerCard: async (wellId: string) => {
+    return request<{ success: boolean; data: BackendDynamometerCard }>(
+      `/wells/${wellId}/dynamometer-cards/latest`
+    );
+  },
+
+  getViscosityProfile: async (wellId: string) => {
+    return request<{ success: boolean; data: ViscosityProfile }>(
+      `/wells/${wellId}/viscosity-profile`
+    );
+  },
 };
 
 // ── Alerts API ────────────────────────────────────────────────────────────────
@@ -509,7 +528,128 @@ export const simulationApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  getPostCssSchedule: async (wellId: string, days = 60) => {
+    return request<{ success: boolean; data: PostCssScheduleResponse }>(
+      `/simulation/post-css-schedule/${wellId}?days=${days}`
+    );
+  },
+
+  injectEdgeAnomaly: async (payload: { well_id: string; anomaly_type: string; severity?: string }) => {
+    return request<{ success: boolean; message: string; alert: any }>(
+      '/simulation/edge-anomaly-inject',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+  },
+
+  getEdgeStream: async (wellId: string) => {
+    return request<{ success: boolean; data: EdgeTelemetryStream }>(
+      `/simulation/edge-stream/${wellId}`
+    );
+  },
 };
+
+// ── Dynamometer Card & Heavy Oil Interfaces ──────────────────────────────────
+
+export interface DynamometerPoint {
+  position: number;
+  load: number;
+}
+
+export interface BackendDynamometerCard {
+  cardId: string;
+  wellId: string;
+  timestamp: string;
+  cssCycleId: string | null;
+  strokeLengthIn: number;
+  spm: number;
+  peakLoadKN: number;
+  minLoadKN: number;
+  cardAreaKNIn: number;
+  diagnosticLabel: string;
+  rodFloatingRisk: number;
+  fluidPoundRisk: number;
+  surfacePoints: DynamometerPoint[];
+  downholePoints: DynamometerPoint[];
+}
+
+export interface ViscosityProfile {
+  wellId: string;
+  currentTempC: number;
+  currentViscosityCP: number;
+  currentSPM: number;
+  strokeLengthIn: number;
+  spmCrit: number;
+  spmSafe: number;
+  buoyantRodWeightKN: number;
+  status: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  recommendation: string;
+  referenceCurve: { tempC: number; viscosityCP: number; spmCrit: number }[];
+}
+
+export interface PostCssScheduleStage {
+  name: string;
+  days: string;
+  tempRange: string;
+  viscosityRange: string;
+  action: string;
+  spmRange: string;
+}
+
+export interface PostCssScheduleDay {
+  day: number;
+  phase: string;
+  phaseNumber: number;
+  temperatureC: number;
+  viscosityCP: number;
+  spmCrit: number;
+  recommendedSPM: number;
+  recommendedVFDHz: number;
+  oilRateBpd: number;
+  cumulativeOilBbl: number;
+  sor: number;
+  floatingRiskPct: number;
+}
+
+export interface PostCssScheduleResponse {
+  wellId: string;
+  steamVolumeTon: number;
+  peakTempC: number;
+  days: number;
+  summary: {
+    cumulativeOilBbl: number;
+    baselineCumulativeOilBbl: number;
+    incrementalOilPct: string;
+    initialSOR: number;
+    finalSOR: number;
+    sorReductionPct: string;
+    rodFailuresPrevented: number;
+    stages: PostCssScheduleStage[];
+  };
+  dailyData: PostCssScheduleDay[];
+}
+
+export interface EdgeTelemetryStream {
+  wellId: string;
+  gateway: string;
+  protocol: string;
+  timestamp: string;
+  telemetry: {
+    reservoirTempC: number;
+    wellheadTempC: number;
+    viscosityCP: number;
+    spm: number;
+    spmCrit: number;
+    vibrationMmS: number;
+    motorPowerKW: number;
+    motorCurrentA: number;
+    isFloatingRisk: boolean;
+  };
+}
 
 // ── Approvals & Recommendations API ───────────────────────────────────────────
 
@@ -575,3 +715,337 @@ export const approvalsApi = {
     });
   },
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI / ML Intelligence API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ForecastDay {
+  day: number;
+  predicted: number;
+  lower90: number;
+  upper90: number;
+}
+
+export interface ShapValue {
+  feature: string;
+  shapValue: number;
+  absContrib: number;
+  pctContrib: number;
+}
+
+export interface ForecastResult {
+  wellId: string;
+  horizon: number;
+  dailySeries: ForecastDay[];
+  shapValues: ShapValue[];
+  modelType: string;
+  rmse: number | null;
+  confidenceLevel: string;
+}
+
+export interface AnomalyReading {
+  timestamp: string;
+  anomalyScore: number;
+  isAnomaly: boolean;
+  features: Record<string, number>;
+}
+
+export interface AnomalyScanResult {
+  wellId: string;
+  totalReadings: number;
+  anomalyCount: number;
+  anomalyRate: number;
+  readings: AnomalyReading[];
+}
+
+export interface PosteriorPdfPoint {
+  x: number;
+  density: number;
+}
+
+export interface FailureRiskResult {
+  wellId: string;
+  priorAlpha: number;
+  priorBeta: number;
+  posteriorAlpha: number;
+  posteriorBeta: number;
+  failureProbMean: number;
+  failureProbMAP: number;
+  ci90Lower: number;
+  ci90Upper: number;
+  riskCategory: 'HIGH' | 'MEDIUM' | 'LOW';
+  recentFailures: number;
+  observationDays: number;
+  posteriorPdfCurve: PosteriorPdfPoint[];
+  method: string;
+  latestWaterCut?: number;
+  latestSOR?: number;
+}
+
+export interface PIMLTwinResult {
+  wellId: string;
+  physicsBpd: number;
+  residualCorrection: number;
+  pimlBpd: number;
+  viscosityCp: number;
+  uncertaintyBpd: number;
+  ci90Lower: number;
+  ci90Upper: number;
+  thermalStage: string;
+  modelType: string;
+  pimlImprovement: string;
+  actualBpd: number | null;
+  physicsErrorPct: number | null;
+  pimlErrorPct: number | null;
+  inputFeatures: Record<string, number>;
+}
+
+export interface AIStatusResult {
+  mlEngineReady: boolean;
+  pimlTwinReady: boolean;
+  xgboostModel: boolean;
+  isolationForest: boolean;
+  shapExplainer: boolean;
+  pimlResidual: boolean;
+}
+
+export const aiApi = {
+  /** Check model readiness */
+  status: () =>
+    request<{ success: boolean; data: AIStatusResult }>('/ai/status'),
+
+  /** XGBoost production forecast (1–30 days) */
+  forecast: (wellId: string, days: number = 14) =>
+    request<{ success: boolean; data: ForecastResult }>(
+      `/ai/forecast/${wellId}?days=${days}`
+    ),
+
+  /** Isolation Forest anomaly scan of last N days of telemetry */
+  anomalyScan: (wellId: string, days: number = 30) =>
+    request<{ success: boolean; data: AnomalyScanResult }>(
+      `/ai/anomaly-scan/${wellId}?days=${days}`
+    ),
+
+  /** SHAP feature importance for latest reading */
+  explain: (wellId: string) =>
+    request<{ success: boolean; data: { wellId: string; shapValues: ShapValue[]; baseValue: number; method: string } }>(
+      `/ai/explain/${wellId}`
+    ),
+
+  /** Bayesian failure risk with 90% credible interval */
+  failureRisk: (wellId: string, observationDays: number = 30) =>
+    request<{ success: boolean; data: FailureRiskResult }>(
+      `/ai/failure-risk/${wellId}?observation_days=${observationDays}`
+    ),
+
+  /** Physics-Informed ML twin state */
+  pimlTwin: (wellId: string) =>
+    request<{ success: boolean; data: PIMLTwinResult }>(
+      `/ai/piml-twin/${wellId}`
+    ),
+
+  /** Score a single telemetry reading for anomaly */
+  detectAnomaly: (payload: {
+    well_id: string;
+    reservoir_temperature_c?: number;
+    vibration_mm_s?: number;
+    motor_power_kw?: number;
+    motor_current_a?: number;
+    pressure_bar?: number;
+    flow_rate_bpd?: number;
+  }) =>
+    request<{ success: boolean; data: { wellId: string; anomalyScore: number; isAnomaly: boolean } }>(
+      '/ai/anomaly-detect',
+      { method: 'POST', body: JSON.stringify(payload) }
+    ),
+};
+
+// ── Heavy Oil AI/ML Engine API ───────────────────────────────────────────────
+
+export interface MLModelStatusResult {
+  models: Record<string, {
+    status: string;
+    sample_count: number;
+    metrics: Record<string, number>;
+    last_trained?: string;
+    artifact_path?: string;
+  }>;
+  overall_system_status: string;
+  trained_artifacts_directory: string;
+}
+
+export interface CSSParetoCandidate {
+  id: number;
+  name: string;
+  steam_volume_ton: number;
+  injection_pressure_bar: number;
+  soak_time_hr: number;
+  predicted_cumulative_oil_bbl: number;
+  predicted_sor: number;
+  estimated_steam_cost_usd: number;
+  estimated_revenue_usd: number;
+  net_economic_value_usd: number;
+  tradeoff_summary: string;
+}
+
+export interface CSSOptimizeResult {
+  well_id: string;
+  cycle_number: number;
+  recommended_candidate_id: number;
+  candidates: CSSParetoCandidate[];
+  explanation: string;
+}
+
+export interface DailyThermalForecastPoint {
+  day: number;
+  date?: string;
+  temperature_c: number;
+  physics_temperature_c: number;
+  residual_correction_c: number;
+  viscosity_cp: number;
+  thermal_stage: string;
+}
+
+export interface ReservoirPredictResult {
+  well_id: string;
+  peak_temperature_c: number;
+  heated_radius_m: number;
+  heat_injected_mmbtu: number;
+  cooling_half_life_days: number;
+  forecast: DailyThermalForecastPoint[];
+}
+
+export interface SRPOptimizeResult {
+  well_id: string;
+  current_temperature_c: number;
+  walther_viscosity_cp: number;
+  terminal_velocity_m_s: number;
+  spm_crit_theoretical: number;
+  spm_crit_safe: number;
+  current_spm: number;
+  rod_floating_risk_pct: number;
+  recommended_spm: number;
+  recommended_vfd_hz: number;
+  stages: Array<{
+    stage_number: number;
+    stage_name: string;
+    day_range: string;
+    temperature_range_c: string;
+    viscosity_range_cp: string;
+    spm_recommended: number;
+    vfd_hz_recommended: number;
+    rod_float_risk_level: string;
+    operational_notes: string;
+  }>;
+}
+
+export interface FaultDetectResult {
+  well_id: string;
+  primary_fault: string;
+  confidence_pct: number;
+  severity: string;
+  probabilities: {
+    rod_floating: number;
+    impact_loading: number;
+    pump_unsetting: number;
+    gas_interference: number;
+    normal_operation: number;
+  };
+  mtbf_days_estimate: number;
+  recommended_actions: string[];
+}
+
+export interface WellInsightsResult {
+  well_id: string;
+  reservoir_temperature_c: number;
+  viscosity_cp: number;
+  thermal_phase: string;
+  spm_actual: number;
+  spm_crit_safe: number;
+  rod_float_risk_pct: number;
+  forecast_60d_cum_oil_bbl: number;
+  forecast_sor: number;
+  fault_diagnosis: string;
+  fault_confidence_pct: number;
+  recommended_css_volume_ton: number;
+  recommended_spm: number;
+  alerts_count: number;
+}
+
+export const mlApi = {
+  /** Get metrics, readiness, and sample counts for all models */
+  modelsStatus: () =>
+    request<MLModelStatusResult>('/ml/models/status'),
+
+  /** Trigger background training across all models */
+  triggerTrain: () =>
+    request<{ status: string; message: string; models: string[] }>('/ml/train', {
+      method: 'POST',
+    }),
+
+  /** Optimize Cyclic Steam Stimulation (CSS) parameters */
+  optimizeCss: (payload: {
+    well_id: string;
+    current_cycle_number?: number;
+    steam_cost_usd_per_ton?: number;
+    oil_price_usd_bbl?: number;
+    min_steam_volume_ton?: number;
+    max_steam_volume_ton?: number;
+  }) =>
+    request<CSSOptimizeResult>('/ml/css/optimize', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Predict 60-day reservoir thermal trajectory */
+  predictReservoir: (payload: {
+    well_id: string;
+    steam_volume_ton?: number;
+    injection_temp_c?: number;
+    soak_time_hr?: number;
+    forecast_days?: number;
+  }) =>
+    request<ReservoirPredictResult>('/ml/reservoir/predict', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Optimize SRP kinematics and SPM_crit */
+  optimizeSrp: (payload: {
+    well_id: string;
+    reservoir_temperature_c: number;
+    well_depth_m?: number;
+    stroke_length_in?: number;
+    current_spm?: number;
+    rod_od_inch?: number;
+    tubing_id_inch?: number;
+  }) =>
+    request<SRPOptimizeResult>('/ml/srp/optimize', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Detect mechanical pumping faults and MTBF */
+  detectFaults: (payload: {
+    well_id: string;
+    spm?: number;
+    pprl_kn: number;
+    mprl_kn: number;
+    card_area_kn_in: number;
+    vibration_mm_s: number;
+    motor_power_kw: number;
+    motor_current_a: number;
+    fluid_level_m?: number;
+    reservoir_temperature_c?: number;
+  }) =>
+    request<FaultDetectResult>('/ml/diagnostics/detect-faults', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Retrieve full multi-model audit and setpoints for a single well */
+  getWellInsights: (wellId: string) =>
+    request<WellInsightsResult>(`/ml/well/${wellId}/insights`),
+};
+

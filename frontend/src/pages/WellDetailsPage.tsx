@@ -10,11 +10,12 @@ import {
   Tooltip, ResponsiveContainer 
 } from 'recharts';
 import { wellsApi, type BackendWell, type BackendProductionPoint, type BackendCSSCycle, type BackendSRPReading } from '../services/api';
+import { DynamometerCardViewer } from '../components/ui/DynamometerCardViewer';
 
 export const WellDetailsPage: React.FC = () => {
   const { wellId = 'BGW-001' } = useParams<{ wellId: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'production' | 'srp' | 'cycles' | 'insights'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'production' | 'srp' | 'cycles' | 'insights' | 'dyno'>('overview');
 
   // Real data
   const [well, setWell] = useState<BackendWell | null>(null);
@@ -127,6 +128,7 @@ export const WellDetailsPage: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-2 text-[14px]">
         {[
           { key: 'overview',   label: 'Overview' },
+          { key: 'dyno',       label: 'Dynamometer & Diagnostics' },
           { key: 'telemetry',  label: 'Telemetry' },
           { key: 'production', label: 'Production' },
           { key: 'srp',        label: 'SRP' },
@@ -451,6 +453,16 @@ export const WellDetailsPage: React.FC = () => {
 
           </div>
 
+        </div>
+      )}
+
+      {/* ── TAB: DYNAMOMETER CARDS & DIAGNOSTICS ─────────────────── */}
+      {activeTab === 'dyno' && (
+        <div className="space-y-6">
+          <DynamometerCardViewer 
+            wellId={wellId}
+            onOptimizeClick={() => navigate('/app/srp-optimizer')}
+          />
         </div>
       )}
 

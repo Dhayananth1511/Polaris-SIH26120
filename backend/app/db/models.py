@@ -271,6 +271,9 @@ class Well(Base):
     production: Mapped[list["Production"]] = relationship(
         "Production", back_populates="well", cascade="all, delete-orphan"
     )
+    dynamometer_cards: Mapped[list["DynamometerCard"]] = relationship(
+        "DynamometerCard", back_populates="well", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Well {self.id} [{self.status}]>"
@@ -491,4 +494,45 @@ class OptimizationApproval(Base):
 
     def __repr__(self) -> str:
         return f"<OptimizationApproval {self.well_id} [{self.status}]>"
+
+
+# ── Dynamometer Card ─────────────────────────────────────────────────────────
+
+class DynamometerCard(Base):
+    __tablename__ = "dynamometer_cards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    card_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    well_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("wells.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    timestamp: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    css_cycle_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    stroke_length_in: Mapped[float] = mapped_column(Float, nullable=False)
+    spm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    peak_load_kn: Mapped[float] = mapped_column(Float, nullable=False)
+    min_load_kn: Mapped[float] = mapped_column(Float, nullable=False)
+    card_area_kn_in: Mapped[float] = mapped_column(Float, nullable=False)
+    diagnostic_label: Mapped[str] = mapped_column(String(50), nullable=False, default="Normal")
+    rod_floating_risk: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    fluid_pound_risk: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    surface_points: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
+    downhole_points: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    well: Mapped["Well"] = relationship("Well", back_populates="dynamometer_cards")
+
+    __table_args__ = (
+        Index("ix_dyno_well_ts", "well_id", "timestamp"),
+        Index("idx_dyno_well_ts_desc", "well_id", timestamp.desc()),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DynamometerCard {self.card_id} [{self.diagnostic_label}]>"
 

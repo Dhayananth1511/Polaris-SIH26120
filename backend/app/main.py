@@ -13,7 +13,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.config.settings import settings
 from app.errors.handlers import register_handlers
 from app.middleware.rate_limit import limiter
-from app.routes import auth, admin, wells, alerts, simulation, approvals
+from app.routes import auth, admin, wells, alerts, simulation, approvals, ai, ml
 from app.utils.logging import setup_logging
 
 logger = structlog.get_logger(__name__)
@@ -22,6 +22,21 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("polaris_api_starting", env=settings.NODE_ENV, port=settings.PORT)
+
+    # ── Warm-up ML models in a thread (non-blocking) ──────────────────────────
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    from app.services.ml_engine import ml_engine
+    from app.services.piml_twin import piml_twin
+    from app.ml.pipelines.inference_engine import ml_inference
+
+    loop = asyncio.get_event_loop()
+    executor = ThreadPoolExecutor(max_workers=3)
+    loop.run_in_executor(executor, ml_engine.ensure_ready)
+    loop.run_in_executor(executor, piml_twin.ensure_ready)
+    loop.run_in_executor(executor, ml_inference.ensure_artifacts)
+    logger.info("polaris_api_ml_warmup_started")
+
     yield
     logger.info("polaris_api_shutdown")
 
@@ -75,6 +90,8 @@ def create_app() -> FastAPI:
     app.include_router(alerts.router, prefix="/api")
     app.include_router(simulation.router, prefix="/api")
     app.include_router(approvals.router, prefix="/api")
+    app.include_router(ai.router, prefix="/api")
+    app.include_router(ml.router, prefix="/api")
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/api/health", tags=["Health"], include_in_schema=False)

@@ -21,11 +21,16 @@ from starlette.requests import Request
 from app.db.base import get_db
 from app.db.models import (
     CSSCycle,
+    DynamometerCard,
     FailureEvent,
     Production,
     SRPOperation,
     Well,
     WellTelemetry,
+)
+from app.services.heavy_oil_physics import (
+    calculate_oil_viscosity_cp,
+    calculate_rod_floating_spm_crit,
 )
 from app.utils.cache import cache
 
@@ -441,6 +446,170 @@ async def well_failure_events(
         for r in rows
     ]
     return {"success": True, "data": data, "total": len(data)}
+
+
+# ── GET /api/wells/{well_id}/dynamometer-cards ────────────────────────────────
+
+@router.get("/{well_id}/dynamometer-cards")
+async def well_dynamometer_cards(
+    well_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    cycle_id: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+):
+    wid = well_id.upper()
+    query = (
+        select(DynamometerCard)
+        .where(DynamometerCard.well_id == wid)
+    )
+    if cycle_id:
+        query = query.where(DynamometerCard.css_cycle_id == cycle_id)
+    query = query.order_by(desc(DynamometerCard.timestamp)).limit(limit)
+
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    data = [
+        {
+            "cardId": r.card_id,
+            "wellId": r.well_id,
+            "timestamp": str(r.timestamp),
+            "cssCycleId": r.css_cycle_id,
+            "strokeLengthIn": r.stroke_length_in,
+            "spm": r.spm or 5.5,
+            "peakLoadKN": r.peak_load_kn,
+            "minLoadKN": r.min_load_kn,
+            "cardAreaKNIn": r.card_area_kn_in,
+            "diagnosticLabel": r.diagnostic_label,
+            "rodFloatingRisk": round(r.rod_floating_risk * 100.0, 1),
+            "fluidPoundRisk": round(r.fluid_pound_risk * 100.0, 1),
+            "surfacePoints": r.surface_points,
+            "downholePoints": r.downhole_points,
+        }
+        for r in rows
+    ]
+    return {"success": True, "data": data, "total": len(data)}
+
+
+# ── GET /api/wells/{well_id}/dynamometer-cards/latest ─────────────────────────
+
+@router.get("/{well_id}/dynamometer-cards/latest")
+async def well_dynamometer_card_latest(
+    well_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    wid = well_id.upper()
+    result = await db.execute(
+        select(DynamometerCard)
+        .where(DynamometerCard.well_id == wid)
+        .order_by(desc(DynamometerCard.timestamp))
+        .limit(1)
+    )
+    card = result.scalar_one_or_none()
+    if not card:
+        # Fallback to first card available in database if well specific not found
+        res_any = await db.execute(select(DynamometerCard).order_by(desc(DynamometerCard.timestamp)).limit(1))
+        card = res_any.scalar_one_or_none()
+
+    if not card:
+        raise HTTPException(status_code=404, detail="No dynamometer cards found")
+
+    return {
+        "success": True,
+        "data": {
+            "cardId": card.card_id,
+            "wellId": wid,
+            "timestamp": str(card.timestamp),
+            "cssCycleId": card.css_cycle_id,
+            "strokeLengthIn": card.stroke_length_in,
+            "spm": card.spm or 5.5,
+            "peakLoadKN": card.peak_load_kn,
+            "minLoadKN": card.min_load_kn,
+            "cardAreaKNIn": card.card_area_kn_in,
+            "diagnosticLabel": card.diagnostic_label,
+            "rodFloatingRisk": round(card.rod_floating_risk * 100.0, 1),
+            "fluidPoundRisk": round(card.fluid_pound_risk * 100.0, 1),
+            "surfacePoints": card.surface_points,
+            "downholePoints": card.downhole_points,
+        }
+    }
+
+
+# ── GET /api/wells/{well_id}/viscosity-profile ────────────────────────────────
+
+@router.get("/{well_id}/viscosity-profile")
+async def well_viscosity_profile(
+    well_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    wid = well_id.upper()
+    well = (await db.execute(select(Well).where(Well.id == wid))).scalar_one_or_none()
+    if not well:
+        raise HTTPException(status_code=404, detail=f"Well {well_id} not found")
+
+    tel = (await db.execute(
+        select(WellTelemetry).where(WellTelemetry.well_id == wid)
+        .order_by(desc(WellTelemetry.timestamp)).limit(1)
+    )).scalar_one_or_none()
+
+    srp = (await db.execute(
+        select(SRPOperation).where(SRPOperation.well_id == wid)
+        .order_by(desc(SRPOperation.timestamp)).limit(1)
+    )).scalar_one_or_none()
+
+    current_temp = tel.reservoir_temperature_c if tel and tel.reservoir_temperature_c else 68.0
+    current_spm = srp.spm if srp and srp.spm else 5.5
+    current_stroke = srp.stroke_length_in if srp and srp.stroke_length_in else 68.0
+
+    mech = calculate_rod_floating_spm_crit(current_temp, stroke_length_in=current_stroke)
+    spm_crit = mech["spm_crit"]
+    current_visc = mech["viscosity_cp"]
+
+    # Evaluate operating status
+    if current_spm > spm_crit:
+        status_label = "Critical Rod Floating Hazard"
+        status_severity = "HIGH"
+        rec_msg = f"Current SPM ({current_spm}) exceeds critical speed ({spm_crit} SPM). Severe downstroke buoyant drag is causing rod float and impact pound."
+    elif current_spm > mech["spm_safe"]:
+        status_label = "Moderate Rod Floating Risk"
+        status_severity = "MEDIUM"
+        rec_msg = f"Pumping close to critical threshold ({spm_crit} SPM). Recommend derating to {mech['spm_safe']} SPM."
+    else:
+        status_label = "Optimal & Kinematically Safe"
+        status_severity = "LOW"
+        rec_msg = f"Pumping speed ({current_spm} SPM) is within safe hydrodynamic envelope for heavy crude viscosity ({current_visc} cP)."
+
+    # Reference ASTM Walther curve from 40°C to 200°C
+    curve = []
+    for t in [45, 55, 65, 75, 90, 110, 130, 150, 180, 210]:
+        v = calculate_oil_viscosity_cp(t)
+        crit = calculate_rod_floating_spm_crit(t, stroke_length_in=current_stroke)["spm_crit"]
+        curve.append({
+            "tempC": t,
+            "viscosityCP": v,
+            "spmCrit": crit,
+        })
+
+    return {
+        "success": True,
+        "data": {
+            "wellId": wid,
+            "currentTempC": current_temp,
+            "currentViscosityCP": current_visc,
+            "currentSPM": current_spm,
+            "strokeLengthIn": current_stroke,
+            "spmCrit": spm_crit,
+            "spmSafe": mech["spm_safe"],
+            "buoyantRodWeightKN": mech["w_buoyant_kn"],
+            "status": status_label,
+            "severity": status_severity,
+            "recommendation": rec_msg,
+            "referenceCurve": curve,
+        }
+    }
 
 
 # ── GET /api/wells/{well_id}/twin-state ───────────────────────────────────────

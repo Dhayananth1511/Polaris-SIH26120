@@ -12,7 +12,12 @@ from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.db.models import Well, Production, CSSCycle, SRPOperation, WellTelemetry
+from app.db.models import Well, Production, CSSCycle, SRPOperation, WellTelemetry, Alert
+from app.services.heavy_oil_physics import (
+    generate_post_css_trajectory,
+    calculate_rod_floating_spm_crit,
+    calculate_oil_viscosity_cp,
+)
 
 router = APIRouter(prefix="/simulation", tags=["Simulation"])
 
@@ -214,6 +219,199 @@ async def run_simulation(req: SimulationRequest, db: AsyncSession = Depends(get_
                 "status": "Recommended" if (sim_oil >= base_oil and sim_risk <= 0.35) else "Caution",
                 "message": "Meets all safety, thermal chamber, and rod string fatigue constraints." if (sim_oil >= base_oil and sim_risk <= 0.35) else "High mechanical stress detected. Review operating limits.",
                 "confidenceScore": 88.5,
+            }
+        }
+    }
+
+
+# ── GET /api/simulation/post-css-schedule/{well_id} ───────────────────────────
+
+@router.get("/post-css-schedule/{well_id}")
+async def get_post_css_schedule(
+    well_id: str,
+    days: int = 60,
+    db: AsyncSession = Depends(get_db),
+):
+    wid = well_id.upper()
+    well = (await db.execute(select(Well).where(Well.id == wid))).scalar_one_or_none()
+    if not well:
+        raise HTTPException(status_code=404, detail=f"Well {well_id} not found")
+
+    css = (await db.execute(
+        select(CSSCycle).where(CSSCycle.well_id == wid)
+        .order_by(desc(CSSCycle.cycle_number)).limit(1)
+    )).scalar_one_or_none()
+
+    prod = (await db.execute(
+        select(Production).where(Production.well_id == wid)
+        .order_by(desc(Production.timestamp)).limit(1)
+    )).scalar_one_or_none()
+
+    steam_vol = css.steam_volume_ton if css and css.steam_volume_ton else 750.0
+    peak_temp = css.post_steam_temperature_c if css and css.post_steam_temperature_c else 185.0
+    baseline_oil = prod.oil_rate_bpd if prod and prod.oil_rate_bpd else 28.5
+
+    schedule = generate_post_css_trajectory(
+        well_id=wid,
+        steam_volume_ton=steam_vol,
+        peak_temp_c=peak_temp,
+        baseline_bpd=baseline_oil,
+        days=days,
+    )
+
+    return {
+        "success": True,
+        "data": schedule,
+    }
+
+
+# ── POST /api/simulation/edge-anomaly-inject ──────────────────────────────────
+
+class EdgeAnomalyRequest(BaseModel):
+    well_id: str
+    anomaly_type: str  # rod_floating, thermal_shock, motor_overload, pump_unsetting
+    severity: Optional[str] = "HIGH"
+
+
+@router.post("/edge-anomaly-inject")
+async def inject_edge_anomaly(
+    req: EdgeAnomalyRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    import uuid
+    from datetime import datetime, timezone
+
+    wid = req.well_id.upper()
+    well = (await db.execute(select(Well).where(Well.id == wid))).scalar_one_or_none()
+    if not well:
+        raise HTTPException(status_code=404, detail=f"Well {req.well_id} not found")
+
+    # Construct specific anomaly telemetry signature and diagnostic message
+    if req.anomaly_type == "rod_floating":
+        msg = f"CRITICAL: Polished rod floating detected on {wid}. Downstroke buoyant drag exceeded available gravity fall velocity."
+        cat = "SRP Mechanical"
+        root_cause = "Crude temperature dropped below 52°C, causing viscosity surge to 2,800 cP while SPM remained at 5.8 (SPM_crit = 4.1)."
+        rec_action = "Derate SPM immediately to 4.2 SPM via VFD controller to restore downstroke rod tension."
+        metric = "Rod Downstroke Load"
+        threshold = "> 8.0 kN"
+        actual = "3.8 kN (Severe Lag)"
+    elif req.anomaly_type == "thermal_shock":
+        msg = f"WARNING: Rapid reservoir heat dissipation detected on {wid}. Viscosity surge impending."
+        cat = "CSS Thermal"
+        root_cause = "Bottomhole temperature decayed 24°C in 48 hours following casing annulus convective loss."
+        rec_action = "Initiate Phase 3 Cold Lift staging schedule; prepare for cyclic steam turnaround."
+        metric = "Reservoir Temp"
+        threshold = "> 65°C"
+        actual = "49.2°C"
+    elif req.anomaly_type == "motor_overload":
+        msg = f"CRITICAL: Surface walking beam drive motor overload & high vibration on {wid}."
+        cat = "Sensor Hardware"
+        root_cause = "Vibration sensor detected 14.8 mm/s peak shock load during rod unsetting fluid pound."
+        rec_action = "Check polished rod clamp tightness and carrier bar alignment; lower VFD frequency to 30 Hz."
+        metric = "Vibration RMS"
+        threshold = "< 4.5 mm/s"
+        actual = "14.8 mm/s"
+    else:
+        msg = f"ALERT: Mechanical anomaly event triggered on well {wid}."
+        cat = "SRP Mechanical"
+        root_cause = "Simulated edge sensor diagnostic anomaly."
+        rec_action = "Inspect surface unit and review latest dynamometer card."
+        metric = "Pump Fillage"
+        threshold = "> 70%"
+        actual = "42%"
+
+    # Create active Alert in database
+    alert = Alert(
+        id=uuid.uuid4(),
+        well_id=wid,
+        message=msg,
+        severity=req.severity or "HIGH",
+        alert_type="Edge Fault Injector",
+        category=cat,
+        root_cause=root_cause,
+        recommended_action=rec_action,
+        metric=metric,
+        threshold=threshold,
+        actual_value=actual,
+        acknowledged=False,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(alert)
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": f"Injected '{req.anomaly_type}' anomaly on {wid}",
+        "alert": {
+            "id": str(alert.id),
+            "wellId": wid,
+            "message": msg,
+            "severity": req.severity or "HIGH",
+            "category": cat,
+            "rootCause": root_cause,
+            "recommendedAction": rec_action,
+            "metric": metric,
+            "actualValue": actual,
+        }
+    }
+
+
+# ── GET /api/simulation/edge-stream/{well_id} ─────────────────────────────────
+
+@router.get("/edge-stream/{well_id}")
+async def get_edge_stream(
+    well_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    import random
+    from datetime import datetime, timezone
+
+    wid = well_id.upper()
+    well = (await db.execute(select(Well).where(Well.id == wid))).scalar_one_or_none()
+    if not well:
+        raise HTTPException(status_code=404, detail=f"Well {well_id} not found")
+
+    tel = (await db.execute(
+        select(WellTelemetry).where(WellTelemetry.well_id == wid)
+        .order_by(desc(WellTelemetry.timestamp)).limit(1)
+    )).scalar_one_or_none()
+
+    srp = (await db.execute(
+        select(SRPOperation).where(SRPOperation.well_id == wid)
+        .order_by(desc(SRPOperation.timestamp)).limit(1)
+    )).scalar_one_or_none()
+
+    base_temp = tel.reservoir_temperature_c if tel and tel.reservoir_temperature_c else 68.0
+    base_spm = srp.spm if srp and srp.spm else 5.5
+    base_vibration = tel.vibration_mm_s if tel and tel.vibration_mm_s else 2.8
+
+    # Realistic micro-jitter for live streaming pulse
+    noise_temp = round(base_temp + (random.random() - 0.5) * 0.4, 1)
+    noise_spm = round(base_spm + (random.random() - 0.5) * 0.1, 2)
+    noise_vib = round(base_vibration + (random.random() - 0.5) * 0.2, 2)
+    noise_power = round(22.4 + (random.random() - 0.5) * 0.8, 1)
+    noise_current = round(38.2 + (random.random() - 0.5) * 1.2, 1)
+
+    visc = calculate_oil_viscosity_cp(noise_temp)
+    mech = calculate_rod_floating_spm_crit(noise_temp)
+
+    return {
+        "success": True,
+        "data": {
+            "wellId": wid,
+            "gateway": "ESP32-BGW-RTU01",
+            "protocol": "Modbus RTU / LoRaWAN",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "telemetry": {
+                "reservoirTempC": noise_temp,
+                "wellheadTempC": round(noise_temp * 0.92, 1),
+                "viscosityCP": visc,
+                "spm": noise_spm,
+                "spmCrit": mech["spm_crit"],
+                "vibrationMmS": noise_vib,
+                "motorPowerKW": noise_power,
+                "motorCurrentA": noise_current,
+                "isFloatingRisk": noise_spm > mech["spm_crit"],
             }
         }
     }

@@ -5,7 +5,7 @@ import {
   RotateCcw, Info, ArrowRight, ArrowLeft, Check, Layers, Eye, Maximize2
 } from 'lucide-react';
 import { DigitalTwin3DCanvas } from '../components/digitaltwin/DigitalTwin3DCanvas';
-import { wellsApi, type BackendCSSCycle, type BackendSRPReading, type BackendWell } from '../services/api';
+import { wellsApi, aiApi, type BackendCSSCycle, type BackendSRPReading, type BackendWell, type PIMLTwinResult } from '../services/api';
 
 interface DigitalTwinProps {
   tab?: 'twin' | 'simulation';
@@ -19,7 +19,7 @@ export const DigitalTwinPage: React.FC<DigitalTwinProps> = ({ tab = 'twin' }) =>
   const [wells, setWells] = useState<BackendWell[]>([]);
   const [selectedSubsystem, setSelectedSubsystem] = useState<'reservoir' | 'wellbore' | 'srp' | 'surface'>('reservoir');
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
-  const [activeSecondaryTab, setActiveSecondaryTab] = useState<'twin' | 'simulation' | 'dyno' | 'cycles'>(
+  const [activeSecondaryTab, setActiveSecondaryTab] = useState<'twin' | 'simulation' | 'dyno' | 'cycles' | 'piml'>(
     tab === 'simulation' ? 'simulation' : 'twin'
   );
 
@@ -27,6 +27,8 @@ export const DigitalTwinPage: React.FC<DigitalTwinProps> = ({ tab = 'twin' }) =>
   const [twinState, setTwinState] = useState<any>(null);
   const [cssCycles, setCssCycles] = useState<BackendCSSCycle[]>([]);
   const [srpReadings, setSrpReadings] = useState<BackendSRPReading[]>([]);
+  const [pimlData, setPimlData] = useState<PIMLTwinResult | null>(null);
+  const [pimlLoading, setPimlLoading] = useState(false);
 
   useEffect(() => {
     wellsApi.listWells().then(res => {
@@ -35,15 +37,19 @@ export const DigitalTwinPage: React.FC<DigitalTwinProps> = ({ tab = 'twin' }) =>
   }, []);
 
   useEffect(() => {
+    setPimlLoading(true);
     Promise.all([
       wellsApi.getTwinState(currentWellId),
       wellsApi.getCSSCycles(currentWellId),
       wellsApi.getSRP(currentWellId, 30),
-    ]).then(([twinRes, cssRes, srpRes]) => {
+      aiApi.pimlTwin(currentWellId).catch(() => null),
+    ]).then(([twinRes, cssRes, srpRes, pimlRes]) => {
       if (twinRes.success) setTwinState(twinRes.data);
       if (cssRes.success) setCssCycles(cssRes.data);
       if (srpRes.success) setSrpReadings(srpRes.data);
-    }).catch(err => console.error('DigitalTwin fetch error:', err));
+      if (pimlRes?.success && pimlRes.data) setPimlData(pimlRes.data);
+    }).catch(err => console.error('DigitalTwin fetch error:', err))
+      .finally(() => setPimlLoading(false));
   }, [currentWellId]);
 
   // Simulation Lab & CSS/SRP Coupled State
@@ -205,6 +211,7 @@ export const DigitalTwinPage: React.FC<DigitalTwinProps> = ({ tab = 'twin' }) =>
           { key: 'simulation', label: 'What-If Physics Simulator' },
           { key: 'dyno', label: 'Downhole Dynamometer Card' },
           { key: 'cycles', label: 'CSS Thermal Cycle History' },
+          { key: 'piml', label: 'PIML Twin (Physics + ML)' },
         ].map(t => (
           <button
             key={t.key}
@@ -717,6 +724,125 @@ export const DigitalTwinPage: React.FC<DigitalTwinProps> = ({ tab = 'twin' }) =>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── PIML TAB: Physics-Informed ML Twin ───────────────────────── */}
+      {activeSecondaryTab === 'piml' && (
+        <div className="space-y-6">
+
+          {/* Header */}
+          <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6">
+            <div className="flex items-center justify-between pb-3 border-b border-[#F1F5F9]">
+              <div>
+                <h3 className="text-lg font-bold text-[#0F172A]">Physics-Informed ML (PIML) Digital Twin</h3>
+                <p className="text-[12px] text-[#64748B]">
+                  Boberg-Lantz physics baseline + XGBoost residual corrector trained on {currentWellId} field data
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {pimlLoading && (
+                  <span className="text-[12px] text-[#64748B] flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5 animate-pulse" /> Computing…
+                  </span>
+                )}
+                {pimlData && (
+                  <span className="px-3 py-1 bg-[#E0F2FE] text-[#0369A1] font-bold text-[12px] rounded">
+                    {pimlData.thermalStage}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {pimlData ? (
+              <div className="mt-4 space-y-6">
+
+                {/* Physics vs PIML comparison cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <span className="text-[11px] font-bold text-[#64748B] uppercase block">Physics Model</span>
+                    <span className="text-2xl font-black text-[#334155] mt-1 block">{pimlData.physicsBpd} BPD</span>
+                    <span className="text-[11px] text-[#64748B]">Boberg-Lantz surrogate</span>
+                    {pimlData.physicsErrorPct !== null && (
+                      <span className="text-[11px] font-semibold text-[#D97706] block mt-1">{pimlData.physicsErrorPct}% vs actual</span>
+                    )}
+                  </div>
+                  <div className="p-4 bg-[#F0FDF4] rounded-lg border border-[#BBF7D0]">
+                    <span className="text-[11px] font-bold text-[#064E3B] uppercase block">PIML Prediction</span>
+                    <span className="text-2xl font-black text-[#059669] mt-1 block">{pimlData.pimlBpd} BPD</span>
+                    <span className="text-[11px] text-[#064E3B]">Physics + XGBoost residual</span>
+                    {pimlData.pimlErrorPct !== null && (
+                      <span className="text-[11px] font-semibold text-[#059669] block mt-1">{pimlData.pimlErrorPct}% vs actual</span>
+                    )}
+                  </div>
+                  <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <span className="text-[11px] font-bold text-[#64748B] uppercase block">Residual Correction</span>
+                    <span className={`text-2xl font-black mt-1 block ${
+                      pimlData.residualCorrection >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
+                    }`}>
+                      {pimlData.residualCorrection >= 0 ? '+' : ''}{pimlData.residualCorrection} BPD
+                    </span>
+                    <span className="text-[11px] text-[#64748B]">ML learned correction</span>
+                  </div>
+                  <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <span className="text-[11px] font-bold text-[#64748B] uppercase block">90% CI</span>
+                    <span className="text-[14px] font-black text-[#0F172A] mt-1 block">
+                      [{pimlData.ci90Lower} – {pimlData.ci90Upper}]
+                    </span>
+                    <span className="text-[11px] text-[#64748B]">BPD uncertainty band</span>
+                  </div>
+                </div>
+
+                {/* Visual comparison bar */}
+                <div className="space-y-3">
+                  <h4 className="text-[13px] font-bold text-[#0F172A]">Prediction Comparison</h4>
+                  {[
+                    { label: 'Physics Model', value: pimlData.physicsBpd, color: '#64748B', max: Math.max(pimlData.physicsBpd, pimlData.pimlBpd, pimlData.actualBpd || 0) + 5 },
+                    { label: 'PIML (Physics + ML)', value: pimlData.pimlBpd, color: '#059669', max: Math.max(pimlData.physicsBpd, pimlData.pimlBpd, pimlData.actualBpd || 0) + 5 },
+                    ...(pimlData.actualBpd ? [{ label: 'Actual Production', value: pimlData.actualBpd, color: '#D32F2F', max: Math.max(pimlData.physicsBpd, pimlData.pimlBpd, pimlData.actualBpd) + 5 }] : []),
+                  ].map((bar, i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="font-semibold text-[#334155]">{bar.label}</span>
+                        <span className="font-black" style={{ color: bar.color }}>{bar.value} BPD</span>
+                      </div>
+                      <div className="w-full h-3 bg-[#F1F5F9] rounded-full">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${Math.min(100, (bar.value / bar.max) * 100)}%`, backgroundColor: bar.color }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Input features */}
+                <div className="space-y-2">
+                  <h4 className="text-[13px] font-bold text-[#0F172A]">Live Input State</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {Object.entries(pimlData.inputFeatures).map(([k, v]) => (
+                      <div key={k} className="p-3 bg-[#F8FAFC] rounded border border-[#E2E8F0] text-[12px]">
+                        <span className="text-[#64748B] block capitalize">{k.replace(/_/g, ' ')}</span>
+                        <span className="font-black text-[#0F172A]">{typeof v === 'number' ? v.toFixed(1) : v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* PIML methodology explanation */}
+                <div className="p-4 bg-[#EFF6FF] rounded-lg border border-[#BFDBFE] text-[12px] text-[#1E40AF] space-y-1">
+                  <strong className="block">PIML Architecture:</strong>
+                  <span>1. <b>Physics Base</b>: Walther viscosity + Boberg-Lantz thermal mobility + SRP volumetric displacement</span><br/>
+                  <span>2. <b>XGBoost Residual</b>: Trained on (actual_bpd − physics_predicted_bpd) from {currentWellId} CSV data</span><br/>
+                  <span>3. <b>Final Output</b>: physics_bpd + residual_correction = PIML_bpd ± {pimlData.uncertaintyBpd} BPD (σ)</span>
+                </div>
+              </div>
+            ) : !pimlLoading ? (
+              <div className="mt-4 p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-[13px] text-[#64748B]">
+                PIML data unavailable. Ensure the backend ML models are trained (check /api/ai/status) and the database is seeded.
+              </div>
+            ) : null}
           </div>
         </div>
       )}
