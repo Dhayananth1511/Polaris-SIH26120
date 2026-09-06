@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Activity, ArrowUpRight, ArrowDownRight, Layers, Sliders, 
@@ -9,23 +9,71 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer 
 } from 'recharts';
-import { WELLS, BGW014_PRODUCTION, BGW014_CSS_CYCLES, BGW014_SRP } from '../data/mockData';
-
-// Chart Data for 4 trend graphs (Matching all 4 KPIs)
-const TREND_DATA = [
-  { date: '1 Oct',  production: 42.1, temperature: 86, rodLoad: 4.8, pumpEff: 78 },
-  { date: '8 Oct',  production: 38.6, temperature: 83, rodLoad: 5.1, pumpEff: 74 },
-  { date: '15 Oct', production: 35.2, temperature: 80, rodLoad: 5.5, pumpEff: 70 },
-  { date: '22 Oct', production: 31.2, temperature: 77, rodLoad: 5.8, pumpEff: 66 },
-  { date: '31 Oct', production: 24.8, temperature: 74, rodLoad: 6.3, pumpEff: 62 },
-];
+import { wellsApi, type BackendWell, type BackendProductionPoint, type BackendCSSCycle, type BackendSRPReading } from '../services/api';
 
 export const WellDetailsPage: React.FC = () => {
-  const { wellId = 'BGW-014' } = useParams<{ wellId: string }>();
+  const { wellId = 'BGW-001' } = useParams<{ wellId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'production' | 'srp' | 'cycles' | 'insights'>('overview');
 
-  const well = WELLS.find(w => w.id.toUpperCase() === wellId.toUpperCase()) || WELLS.find(w => w.id === 'BGW-014') || WELLS[0];
+  // Real data
+  const [well, setWell] = useState<BackendWell | null>(null);
+  const [production, setProduction] = useState<BackendProductionPoint[]>([]);
+  const [cycles, setCycles] = useState<BackendCSSCycle[]>([]);
+  const [srp, setSrp] = useState<BackendSRPReading[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const id = wellId.toUpperCase();
+    Promise.all([
+      wellsApi.getWell(id),
+      wellsApi.getProduction(id, 60),
+      wellsApi.getCSSCycles(id),
+      wellsApi.getSRP(id, 30),
+    ]).then(([wellRes, prodRes, cssRes, srpRes]) => {
+      if (wellRes.success) setWell(wellRes.data);
+      if (prodRes.success) setProduction(prodRes.data);
+      if (cssRes.success) setCycles(cssRes.data);
+      if (srpRes.success) setSrp(srpRes.data);
+    }).catch(err => console.error('WellDetails fetch error:', err))
+      .finally(() => setLoading(false));
+  }, [wellId]);
+
+  // Build trend chart from production data
+  const trendData = production.slice(-10).map((p, idx) => {
+    const srpPoint = srp[idx] || srp[srp.length - 1];
+    return {
+      date: p.date.length > 5 ? p.date.slice(5) : p.date,
+      production: p.oilRate,
+      temperature: well?.temperature || 80,
+      rodLoad: srpPoint?.polishedRodLoadKN || 5.2,
+      pumpEff: srpPoint?.pumpEfficiencyPct || 74,
+    };
+  });
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[#0F172A] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-[#64748B]">Loading well telemetry & engineering records...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!well) {
+    return (
+      <div className="p-8 text-center text-[#64748B]">
+        <AlertTriangle className="w-10 h-10 text-[#D32F2F] mx-auto mb-2" />
+        <h2 className="text-lg font-bold text-[#0F172A]">Well Not Found</h2>
+        <p className="text-sm">Unable to locate records for well {wellId}.</p>
+        <button onClick={() => navigate('/app/wells')} className="mt-4 px-4 py-2 bg-[#0F172A] text-white rounded text-sm font-bold">
+          Back to Well Explorer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 bg-white min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -190,7 +238,7 @@ export const WellDetailsPage: React.FC = () => {
               </div>
               <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={TREND_DATA}>
+                  <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <YAxis domain={[20, 45]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
@@ -217,7 +265,7 @@ export const WellDetailsPage: React.FC = () => {
               </div>
               <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={TREND_DATA}>
+                  <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <YAxis domain={[70, 90]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
@@ -244,7 +292,7 @@ export const WellDetailsPage: React.FC = () => {
               </div>
               <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={TREND_DATA}>
+                  <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <YAxis domain={[4.0, 7.0]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
@@ -271,7 +319,7 @@ export const WellDetailsPage: React.FC = () => {
               </div>
               <div className="h-44 min-h-[176px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={TREND_DATA}>
+                  <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
                     <YAxis domain={[50, 90]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
@@ -442,7 +490,7 @@ export const WellDetailsPage: React.FC = () => {
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={BGW014_PRODUCTION}>
+              <LineChart data={production}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94A3B8' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
@@ -502,26 +550,26 @@ export const WellDetailsPage: React.FC = () => {
               <thead>
                 <tr className="bg-[#F8FAFC] text-[#64748B] text-[11px] font-bold uppercase tracking-wider border-b border-[#E2E8F0]">
                   <th className="py-2.5 px-3">Cycle #</th>
-                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">Inj Duration</th>
                   <th className="py-2.5 px-3 text-right">Steam Vol (t)</th>
-                  <th className="py-2.5 px-3 text-right">Soak (Days)</th>
-                  <th className="py-2.5 px-3 text-right">Peak Rate</th>
-                  <th className="py-2.5 px-3 text-right">SOR</th>
+                  <th className="py-2.5 px-3 text-right">Inj. Press (bar)</th>
+                  <th className="py-2.5 px-3 text-right">Soak Time</th>
+                  <th className="py-2.5 px-3 text-right">Steam Temp</th>
                   <th className="py-2.5 px-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1F5F9]">
-                {BGW014_CSS_CYCLES.map(c => (
-                  <tr key={c.cycleNumber} className="hover:bg-[#F8FAFC]">
+                {cycles.map(c => (
+                  <tr key={c.cycleId || c.cycleNumber} className="hover:bg-[#F8FAFC]">
                     <td className="py-3 px-3 font-bold text-[#0F172A]">Cycle {c.cycleNumber}</td>
-                    <td className="py-3 px-3 text-[#64748B]">{c.injectionDate}</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#0F172A]">{c.steamVolume}</td>
-                    <td className="py-3 px-3 text-right text-[#64748B]">{c.soakTime}</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#15803D]">{c.peakProduction} BOPD</td>
-                    <td className="py-3 px-3 text-right text-[#64748B]">{c.sor}</td>
+                    <td className="py-3 px-3 text-[#64748B]">{c.injectionDurationHr ? `${c.injectionDurationHr}h` : '-'}</td>
+                    <td className="py-3 px-3 text-right font-bold text-[#0F172A]">{c.steamVolumeTon}</td>
+                    <td className="py-3 px-3 text-right text-[#64748B]">{c.injectionPressureBar}</td>
+                    <td className="py-3 px-3 text-right font-bold text-[#15803D]">{c.soakTimeHr ? `${Math.round(c.soakTimeHr / 24)}d (${c.soakTimeHr}h)` : '-'}</td>
+                    <td className="py-3 px-3 text-right text-[#64748B]">{c.steamTemperatureC}°C</td>
                     <td className="py-3 px-3 text-center">
                       <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        c.status === 'Active' ? 'bg-[#FFEBEE] text-[#B71C1C]' : 'bg-[#E8F5E9] text-[#1B5E20]'
+                        c.status === 'Active' || c.status === 'ACTIVE' ? 'bg-[#FFEBEE] text-[#B71C1C]' : 'bg-[#E8F5E9] text-[#1B5E20]'
                       }`}>
                         {c.status}
                       </span>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Layers, ZoomIn, ZoomOut, RotateCcw, ExternalLink, Activity, Thermometer, ShieldAlert, Compass, MapPin } from 'lucide-react';
+import { wellsApi } from '../../services/api';
 
 export interface FieldWell {
   id: string;
@@ -26,23 +27,107 @@ export interface FieldWell {
 // Center: 27°46'16" N, 71°38'37" E (27.7711° N, 71.6436° E)
 // PML Block: 206.8 sq km in Bikaner-Nagaur Basin, Jaisalmer District, Rajasthan
 export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
-  // ── Critical Wells (Red Pins) ───────────────────────────────────────
   { 
-    id: 'BGW-014', 
-    name: 'BGW-014', 
-    status: 'Critical', 
-    oilProduction: 24.8, 
-    sor: 3.8, 
-    temperature: 74, 
+    id: 'BGW-001', 
+    name: 'BGW-001 (Discovery)', 
+    status: 'Normal', 
+    oilProduction: 28.5, 
+    sor: 3.2, 
+    temperature: 66.1, 
+    rodLoad: 4.8, 
+    pumpEfficiency: 78, 
+    failureRisk: 'LOW (0.08)', 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 1109.6, 
+    apiGravity: 18.7, 
+    cssCycle: 'Cycle 04 (Production)', 
+    lat: 26.9961, 
+    lng: 71.59178 
+  },
+  { 
+    id: 'BGW-002', 
+    name: 'BGW-002', 
+    status: 'Normal', 
+    oilProduction: 24.1, 
+    sor: 3.5, 
+    temperature: 58.5, 
+    rodLoad: 5.1, 
+    pumpEfficiency: 74, 
+    failureRisk: 'LOW (0.12)', 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 1114.4, 
+    apiGravity: 17.9, 
+    cssCycle: 'Cycle 04 (Production)', 
+    lat: 26.94302, 
+    lng: 71.60164 
+  },
+  { 
+    id: 'BGW-003', 
+    name: 'BGW-003', 
+    status: 'Attention', 
+    oilProduction: 21.3, 
+    sor: 4.1, 
+    temperature: 56.6, 
     rodLoad: 6.3, 
     pumpEfficiency: 62, 
-    failureRisk: 'HIGH (0.68)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 852, 
-    apiGravity: 17.5, 
-    cssCycle: 'Cycle 04 (Active)', 
-    lat: 27.7761, 
-    lng: 71.6534 
+    failureRisk: 'MEDIUM (0.45)', 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 977.4, 
+    apiGravity: 18.1, 
+    cssCycle: 'Cycle 04 (Production)', 
+    lat: 26.94107, 
+    lng: 71.59129 
+  },
+  { 
+    id: 'BGW-004', 
+    name: 'BGW-004', 
+    status: 'Normal', 
+    oilProduction: 31.0, 
+    sor: 3.0, 
+    temperature: 43.9, 
+    rodLoad: 4.2, 
+    pumpEfficiency: 81, 
+    failureRisk: 'LOW (0.06)', 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 941.8, 
+    apiGravity: 18.8, 
+    cssCycle: 'Cycle 03 (Production)', 
+    lat: 26.91468, 
+    lng: 71.47701 
+  },
+  { 
+    id: 'BGW-005', 
+    name: 'BGW-005', 
+    status: 'Normal', 
+    oilProduction: 25.2, 
+    sor: 3.7, 
+    temperature: 46.5, 
+    rodLoad: 5.8, 
+    pumpEfficiency: 70, 
+    failureRisk: 'LOW (0.15)', 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 861.7, 
+    apiGravity: 18.5, 
+    cssCycle: 'Cycle 02 (Production)', 
+    lat: 26.89927, 
+    lng: 71.54513 
+  },
+  { 
+    id: 'BGW-006', 
+    name: 'BGW-006', 
+    status: 'Normal', 
+    oilProduction: 27.8, 
+    sor: 3.3, 
+    temperature: 53.4, 
+    rodLoad: 4.9, 
+    pumpEfficiency: 76, 
+    failureRisk: 'LOW (0.10)', 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 875.8, 
+    apiGravity: 18.0, 
+    cssCycle: 'Cycle 04 (Production)', 
+    lat: 26.90994, 
+    lng: 71.60323 
   },
   { 
     id: 'BGW-007', 
@@ -50,377 +135,33 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     status: 'Critical', 
     oilProduction: 18.4, 
     sor: 5.2, 
-    temperature: 68, 
+    temperature: 47.7, 
     rodLoad: 7.1, 
     pumpEfficiency: 52, 
     failureRisk: 'HIGH (0.72)', 
-    formation: 'Lower Bilara Dolomite', 
-    depthMeters: 864, 
-    apiGravity: 16.8, 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 1080.1, 
+    apiGravity: 18.7, 
     cssCycle: 'Cycle 03 (Decline)', 
-    lat: 27.7644, 
-    lng: 71.6331 
-  },
-
-  // ── Attention Wells (Yellow / Amber Pins) ───────────────────────────
-  { 
-    id: 'BGW-021', 
-    name: 'BGW-021', 
-    status: 'Attention', 
-    oilProduction: 27.1, 
-    sor: 4.3, 
-    temperature: 73, 
-    rodLoad: 5.9, 
-    pumpEfficiency: 66, 
-    failureRisk: 'MEDIUM (0.42)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 846, 
-    apiGravity: 17.8, 
-    cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7828, 
-    lng: 71.6488 
-  },
-  { 
-    id: 'BGW-003', 
-    name: 'BGW-003', 
-    status: 'Attention', 
-    oilProduction: 24.8, 
-    sor: 4.1, 
-    temperature: 74, 
-    rodLoad: 6.3, 
-    pumpEfficiency: 62, 
-    failureRisk: 'MEDIUM (0.45)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 850, 
-    apiGravity: 17.4, 
-    cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7731, 
-    lng: 71.6411 
-  },
-  { 
-    id: 'BGW-010', 
-    name: 'BGW-010', 
-    status: 'Attention', 
-    oilProduction: 22.1, 
-    sor: 4.6, 
-    temperature: 71, 
-    rodLoad: 6.8, 
-    pumpEfficiency: 58, 
-    failureRisk: 'MEDIUM (0.48)', 
-    formation: 'Jodhpur Sandstone Member C', 
-    depthMeters: 870, 
-    apiGravity: 16.9, 
-    cssCycle: 'Cycle 03 (Soaking)', 
-    lat: 27.7601, 
-    lng: 71.6266 
-  },
-
-  // ── Normal / Operating Heavy Oil Wells (Green Pins) ─────────────────
-  { 
-    id: 'BGW-001', 
-    name: 'BGW-001 (Discovery)', 
-    status: 'Normal', 
-    oilProduction: 31.2, 
-    sor: 3.2, 
-    temperature: 82, 
-    rodLoad: 4.2, 
-    pumpEfficiency: 78, 
-    failureRisk: 'LOW (0.08)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 840, 
-    apiGravity: 18.2, 
-    cssCycle: 'Cycle 05 (Stable)', 
-    lat: 27.7661, 
-    lng: 71.6356 
-  },
-  { 
-    id: 'BGW-002', 
-    name: 'BGW-002', 
-    status: 'Normal', 
-    oilProduction: 28.4, 
-    sor: 3.5, 
-    temperature: 79, 
-    rodLoad: 5.1, 
-    pumpEfficiency: 74, 
-    failureRisk: 'LOW (0.12)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 848, 
-    apiGravity: 17.6, 
-    cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7776, 
-    lng: 71.6386 
-  },
-  { 
-    id: 'BGW-004', 
-    name: 'BGW-004', 
-    status: 'Normal', 
-    oilProduction: 33.1, 
-    sor: 3.0, 
-    temperature: 81, 
-    rodLoad: 4.2, 
-    pumpEfficiency: 81, 
-    failureRisk: 'LOW (0.06)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 855, 
-    apiGravity: 18.0, 
-    cssCycle: 'Cycle 03 (Stable)', 
-    lat: 27.7711, 
-    lng: 71.6561 
-  },
-  { 
-    id: 'BGW-005', 
-    name: 'BGW-005', 
-    status: 'Normal', 
-    oilProduction: 26.7, 
-    sor: 3.7, 
-    temperature: 76, 
-    rodLoad: 5.8, 
-    pumpEfficiency: 70, 
-    failureRisk: 'LOW (0.15)', 
-    formation: 'Lower Bilara Dolomite', 
-    depthMeters: 860, 
-    apiGravity: 17.1, 
-    cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7606, 
-    lng: 71.6426 
-  },
-  { 
-    id: 'BGW-006', 
-    name: 'BGW-006', 
-    status: 'Normal', 
-    oilProduction: 29.5, 
-    sor: 3.3, 
-    temperature: 80, 
-    rodLoad: 4.9, 
-    pumpEfficiency: 76, 
-    failureRisk: 'LOW (0.10)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 852, 
-    apiGravity: 17.7, 
-    cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7846, 
-    lng: 71.6416 
+    lat: 26.88613, 
+    lng: 71.57920 
   },
   { 
     id: 'BGW-008', 
     name: 'BGW-008', 
     status: 'Normal', 
-    oilProduction: 32.8, 
+    oilProduction: 29.6, 
     sor: 3.1, 
-    temperature: 83, 
+    temperature: 53.3, 
     rodLoad: 4.6, 
     pumpEfficiency: 79, 
     failureRisk: 'LOW (0.09)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 858, 
-    apiGravity: 18.1, 
-    cssCycle: 'Cycle 03 (Stable)', 
-    lat: 27.7676, 
-    lng: 71.6626 
-  },
-  { 
-    id: 'BGW-009', 
-    name: 'BGW-009', 
-    status: 'Normal', 
-    oilProduction: 27.3, 
-    sor: 3.6, 
-    temperature: 78, 
-    rodLoad: 5.4, 
-    pumpEfficiency: 72, 
-    failureRisk: 'LOW (0.14)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 844, 
-    apiGravity: 17.3, 
-    cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7686, 
-    lng: 71.6381 
-  },
-  { 
-    id: 'BGW-011', 
-    name: 'BGW-011', 
-    status: 'Normal', 
-    oilProduction: 30.6, 
-    sor: 3.3, 
-    temperature: 80, 
-    rodLoad: 5.0, 
-    pumpEfficiency: 77, 
-    failureRisk: 'LOW (0.11)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 856, 
-    apiGravity: 17.9, 
-    cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7581, 
-    lng: 71.6536 
-  },
-  { 
-    id: 'BGW-012', 
-    name: 'BGW-012', 
-    status: 'Normal', 
-    oilProduction: 25.9, 
-    sor: 3.8, 
-    temperature: 77, 
-    rodLoad: 5.6, 
-    pumpEfficiency: 69, 
-    failureRisk: 'LOW (0.16)', 
-    formation: 'Jodhpur Sandstone Member C', 
-    depthMeters: 865, 
+    formation: 'Jodhpur Sandstone', 
+    depthMeters: 855.9, 
     apiGravity: 17.0, 
-    cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7801, 
-    lng: 71.6286 
-  },
-  { 
-    id: 'BGW-013', 
-    name: 'BGW-013', 
-    status: 'Normal', 
-    oilProduction: 34.2, 
-    sor: 2.9, 
-    temperature: 84, 
-    rodLoad: 4.0, 
-    pumpEfficiency: 82, 
-    failureRisk: 'LOW (0.05)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 842, 
-    apiGravity: 18.4, 
-    cssCycle: 'Cycle 04 (Peak)', 
-    lat: 27.7751, 
-    lng: 71.6596 
-  },
-  { 
-    id: 'BGW-015', 
-    name: 'BGW-015', 
-    status: 'Normal', 
-    oilProduction: 28.0, 
-    sor: 3.5, 
-    temperature: 79, 
-    rodLoad: 5.1, 
-    pumpEfficiency: 73, 
-    failureRisk: 'LOW (0.13)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 854, 
-    apiGravity: 17.5, 
     cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7646, 
-    lng: 71.6481 
-  },
-  { 
-    id: 'BGW-016', 
-    name: 'BGW-016', 
-    status: 'Normal', 
-    oilProduction: 31.8, 
-    sor: 3.2, 
-    temperature: 81, 
-    rodLoad: 4.4, 
-    pumpEfficiency: 79, 
-    failureRisk: 'LOW (0.07)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 845, 
-    apiGravity: 18.0, 
-    cssCycle: 'Cycle 03 (Stable)', 
-    lat: 27.7836, 
-    lng: 71.6341 
-  },
-  { 
-    id: 'BGW-017', 
-    name: 'BGW-017', 
-    status: 'Normal', 
-    oilProduction: 29.1, 
-    sor: 3.4, 
-    temperature: 80, 
-    rodLoad: 4.8, 
-    pumpEfficiency: 75, 
-    failureRisk: 'LOW (0.11)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 850, 
-    apiGravity: 17.7, 
-    cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7721, 
-    lng: 71.6356 
-  },
-  { 
-    id: 'BGW-018', 
-    name: 'BGW-018', 
-    status: 'Normal', 
-    oilProduction: 30.2, 
-    sor: 3.3, 
-    temperature: 80, 
-    rodLoad: 4.7, 
-    pumpEfficiency: 77, 
-    failureRisk: 'LOW (0.10)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 848, 
-    apiGravity: 17.8, 
-    cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7566, 
-    lng: 71.6376 
-  },
-  { 
-    id: 'BGW-019', 
-    name: 'BGW-019', 
-    status: 'Normal', 
-    oilProduction: 27.8, 
-    sor: 3.6, 
-    temperature: 78, 
-    rodLoad: 5.3, 
-    pumpEfficiency: 71, 
-    failureRisk: 'LOW (0.14)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 857, 
-    apiGravity: 17.4, 
-    cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7806, 
-    lng: 71.6556 
-  },
-  { 
-    id: 'BGW-020', 
-    name: 'BGW-020', 
-    status: 'Normal', 
-    oilProduction: 33.5, 
-    sor: 3.0, 
-    temperature: 82, 
-    rodLoad: 4.1, 
-    pumpEfficiency: 80, 
-    failureRisk: 'LOW (0.06)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 840, 
-    apiGravity: 18.3, 
-    cssCycle: 'Cycle 04 (Peak)', 
-    lat: 27.7736, 
-    lng: 71.6226 
-  },
-  { 
-    id: 'BGW-022', 
-    name: 'BGW-022', 
-    status: 'Normal', 
-    oilProduction: 29.8, 
-    sor: 3.4, 
-    temperature: 79, 
-    rodLoad: 4.9, 
-    pumpEfficiency: 76, 
-    failureRisk: 'LOW (0.09)', 
-    formation: 'Jodhpur Sandstone Member A', 
-    depthMeters: 849, 
-    apiGravity: 17.7, 
-    cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7586, 
-    lng: 71.6476 
-  },
-  { 
-    id: 'BGW-023', 
-    name: 'BGW-023', 
-    status: 'Normal', 
-    oilProduction: 32.0, 
-    sor: 3.1, 
-    temperature: 82, 
-    rodLoad: 4.3, 
-    pumpEfficiency: 78, 
-    failureRisk: 'LOW (0.08)', 
-    formation: 'Jodhpur Sandstone Member B', 
-    depthMeters: 851, 
-    apiGravity: 18.0, 
-    cssCycle: 'Cycle 04 (Stable)', 
-    lat: 27.7791, 
-    lng: 71.6506 
+    lat: 26.95283, 
+    lng: 71.59492 
   },
 ];
 
@@ -429,18 +170,47 @@ interface FieldMapProps {
   selectedWellId?: string;
 }
 
-export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selectedWellId = 'BGW-014' }) => {
+export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selectedWellId = 'BGW-001' }) => {
   const navigate = useNavigate();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
+  const [wellsList, setWellsList] = useState<FieldWell[]>(BAGHEWALA_MAP_WELLS);
   const [activeWell, setActiveWell] = useState<FieldWell | null>(
     BAGHEWALA_MAP_WELLS.find(w => w.id === selectedWellId) || BAGHEWALA_MAP_WELLS[0]
   );
   const [activeLayer, setActiveLayer] = useState<'google' | 'esri' | 'terrain'>('google');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Normal' | 'Attention' | 'Critical'>('ALL');
+
+  // Fetch live wells from DB
+  useEffect(() => {
+    wellsApi.listWells().then(res => {
+      if (res.success && res.data.length > 0) {
+        const live: FieldWell[] = res.data.map(w => ({
+          id: w.id,
+          name: w.name,
+          status: w.status === 'Critical' ? 'Critical' : w.status === 'Attention' ? 'Attention' : 'Normal',
+          oilProduction: w.oilProduction,
+          sor: w.sor,
+          temperature: w.temperature,
+          rodLoad: w.rodLoad,
+          pumpEfficiency: w.pumpEfficiency,
+          failureRisk: `${w.failureRisk.toUpperCase()} (${w.failureRiskScore.toFixed(2)})`,
+          formation: w.reservoir || 'Jodhpur Sandstone',
+          depthMeters: w.wellDepthM || w.pumpDepth || 1000,
+          apiGravity: w.oilApi || 18.0,
+          cssCycle: w.cssPhase || 'Cycle 01',
+          lat: w.latitude,
+          lng: w.longitude,
+        }));
+        setWellsList(live);
+        const match = live.find(w => w.id === selectedWellId) || live[0];
+        if (match) setActiveWell(match);
+      }
+    }).catch(err => console.error('Map wells fetch error:', err));
+  }, [selectedWellId]);
 
   // Clean circle marker — professional GIS style
   const createPinIcon = (well: FieldWell, isSelected: boolean) => {
@@ -503,12 +273,12 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Oil India Limited Baghewala Petroleum Mining Lease Center (Jaisalmer District, Rajasthan)
-    const baghewalaCenter: [number, number] = [27.7711, 71.6436];
+    // Oil India Limited Baghewala PML Center (Jaisalmer District, Rajasthan)
+    const baghewalaCenter: [number, number] = [26.94, 71.58];
 
     const map = L.map(mapContainerRef.current, {
       center: baghewalaCenter,
-      zoom: 14,
+      zoom: 12,
       minZoom: 11,
       maxZoom: 19,
       zoomControl: false,
@@ -604,7 +374,7 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    const visibleWells = BAGHEWALA_MAP_WELLS.filter(
+    const visibleWells = wellsList.filter(
       w => statusFilter === 'ALL' || w.status === statusFilter
     );
 
@@ -684,7 +454,7 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
             Field Map - Baghewala
           </h3>
           <span className="text-[11px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded">
-            23 Heavy Oil Wells
+            {BAGHEWALA_MAP_WELLS.length} Heavy Oil Wells
           </span>
         </div>
 

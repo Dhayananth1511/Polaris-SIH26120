@@ -1,138 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, ShieldAlert, CheckCircle2, Filter, Search, 
   ArrowRight, RefreshCw, Zap, Sliders, Eye, BellRing, ChevronRight, Info
 } from 'lucide-react';
-import { ALERTS, WELLS } from '../data/mockData';
-import type { AlertSeverity } from '../types';
+import { alertsApi, type BackendAlert } from '../services/api';
 
-interface ExtendedAlert {
-  id: string;
-  wellId: string;
-  wellName: string;
-  type: 'Fault Flag' | 'Threshold Breach' | 'Anomaly Alert' | 'Critical Operational';
-  category: 'SRP Mechanical' | 'CSS Thermal' | 'Reservoir Fluid' | 'Sensor Hardware';
-  message: string;
-  severity: AlertSeverity;
-  timestamp: string;
-  acknowledged: boolean;
-  rootCause: string;
-  recommendedAction: string;
-  metric: string;
-  threshold: string;
-  actual: string;
-}
 
-const EXTENDED_ALERTS: ExtendedAlert[] = [
-  {
-    id: 'ALT-101',
-    wellId: 'BGW-014',
-    wellName: 'Well BGW-014',
-    type: 'Critical Operational',
-    category: 'SRP Mechanical',
-    message: 'Elevated polished rod load detected (6.3 kN vs 5.5 kN threshold)',
-    severity: 'CRITICAL',
-    timestamp: '12 min ago',
-    acknowledged: false,
-    rootCause: 'Heavy viscous oil accumulation in pump barrel causing fluid pound and high friction on upstroke.',
-    recommendedAction: 'Reduce SPM from 5.8 to 5.1 and adjust VFD frequency to 36 Hz via SRP Optimizer.',
-    metric: 'Peak Polished Rod Load',
-    threshold: '5.50 kN',
-    actual: '6.30 kN',
-  },
-  {
-    id: 'ALT-102',
-    wellId: 'BGW-021',
-    wellName: 'Well BGW-021',
-    type: 'Threshold Breach',
-    category: 'CSS Thermal',
-    message: 'Reservoir bottom-hole temperature declining faster than Boberg-Lantz model curve',
-    severity: 'HIGH',
-    timestamp: '34 min ago',
-    acknowledged: false,
-    rootCause: 'Heat loss to adjacent un-steamed shale overburden; thermal soak phase incomplete.',
-    recommendedAction: 'Increase steam injection volume for next cycle to 780 tonnes or schedule localized re-steaming.',
-    metric: 'Bottom-Hole Temp',
-    threshold: '75.0 °C',
-    actual: '69.4 °C',
-  },
-  {
-    id: 'ALT-103',
-    wellId: 'BGW-007',
-    wellName: 'Well BGW-007',
-    type: 'Anomaly Alert',
-    category: 'Reservoir Fluid',
-    message: 'Production rate 18% below expected XGBoost surrogate model baseline',
-    severity: 'MEDIUM',
-    timestamp: '1 hr ago',
-    acknowledged: false,
-    rootCause: 'Temporary sand influx near perforated interval restricting fluid inflow.',
-    recommendedAction: 'Review sand screen differential pressure and perform backflush diagnostic.',
-    metric: 'Oil Flow Rate',
-    threshold: '110 BPD',
-    actual: '91 BPD',
-  },
-  {
-    id: 'ALT-104',
-    wellId: 'BGW-003',
-    wellName: 'Well BGW-003',
-    type: 'Fault Flag',
-    category: 'Sensor Hardware',
-    message: 'Tubing head pressure transducer signal drift anomaly detected',
-    severity: 'LOW',
-    timestamp: '2 hrs ago',
-    acknowledged: true,
-    rootCause: 'Telemetry packet jitter and minor calibration offset on sensor transmitter TX-03.',
-    recommendedAction: 'Calibrate transmitter zero-point during upcoming maintenance window.',
-    metric: 'Transducer Voltage',
-    threshold: '± 2.0%',
-    actual: '+ 3.8%',
-  },
-  {
-    id: 'ALT-105',
-    wellId: 'BGW-019',
-    wellName: 'Well BGW-019',
-    type: 'Threshold Breach',
-    category: 'CSS Thermal',
-    message: 'Steam-to-Oil Ratio (SOR) elevated above operational ceiling of 6.5',
-    severity: 'HIGH',
-    timestamp: '3 hrs ago',
-    acknowledged: false,
-    rootCause: 'Low oil mobilization response due to high water saturation in upper pay zone.',
-    recommendedAction: 'Trigger Joint Optimizer to re-evaluate steam cutoff threshold.',
-    metric: 'Instantaneous SOR',
-    threshold: '6.50',
-    actual: '7.20',
-  },
-];
 
 export const AlertsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [alerts, setAlerts] = useState<ExtendedAlert[]>(EXTENDED_ALERTS);
+  const [alerts, setAlerts] = useState<BackendAlert[]>([]);
   const [selectedSeverity, setSelectedSeverity] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeAlert, setActiveAlert] = useState<ExtendedAlert>(EXTENDED_ALERTS[0]);
+  const [activeAlert, setActiveAlert] = useState<BackendAlert | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleAcknowledge = (id: string) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, acknowledged: true } : a));
-    if (activeAlert.id === id) {
-      setActiveAlert(prev => ({ ...prev, acknowledged: true }));
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await alertsApi.listAlerts({ limit: 100 });
+      if (res.success) {
+        setAlerts(res.data);
+        if (!activeAlert && res.data.length > 0) setActiveAlert(res.data[0]);
+      }
+    } catch (err) {
+      console.error('AlertsPage fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
+
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await alertsApi.acknowledgeAlert(id);
+      setAlerts(prev => prev.map(a => a.id === id ? { ...a, acknowledged: true } : a));
+      if (activeAlert?.id === id) setActiveAlert(prev => prev ? { ...prev, acknowledged: true } : prev);
+    } catch (err) {
+      console.error('Acknowledge error:', err);
     }
   };
 
-  const handleAcknowledgeAll = () => {
+  const handleAcknowledgeAll = async () => {
+    for (const a of alerts.filter(a => !a.acknowledged)) {
+      try { await alertsApi.acknowledgeAlert(a.id); } catch {}
+    }
     setAlerts(prev => prev.map(a => ({ ...a, acknowledged: true })));
-    setActiveAlert(prev => ({ ...prev, acknowledged: true }));
+    if (activeAlert) setActiveAlert(prev => prev ? { ...prev, acknowledged: true } : prev);
   };
 
   const filteredAlerts = alerts.filter(a => {
     const matchSev = selectedSeverity === 'ALL' || a.severity === selectedSeverity;
-    const matchType = selectedType === 'ALL' || a.type === selectedType;
+    const matchType = selectedType === 'ALL' || (a.alertType || '') === selectedType || selectedType === 'ALL';
     const matchSearch = a.wellId.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         a.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        a.category.toLowerCase().includes(searchQuery.toLowerCase());
+                        (a.category || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchSev && matchType && matchSearch;
   });
 
@@ -258,7 +186,7 @@ export const AlertsPage: React.FC = () => {
               </div>
             ) : (
               filteredAlerts.map(a => {
-                const isSelected = activeAlert.id === a.id;
+                const isSelected = activeAlert?.id === a.id;
                 return (
                   <div
                     key={a.id}
@@ -287,7 +215,7 @@ export const AlertsPage: React.FC = () => {
                         <div className="flex items-center gap-3 mt-2 text-[11px] text-[#94A3B8]">
                           <span>{a.timestamp}</span>
                           <span>•</span>
-                          <span>{a.type}</span>
+                          <span>{a.alertType}</span>
                         </div>
                       </div>
                     </div>
@@ -312,89 +240,95 @@ export const AlertsPage: React.FC = () => {
 
         {/* Right Column: Active Alert Deep Dive & AI Diagnostic (5 cols) */}
         <div className="lg:col-span-5 bg-white rounded border border-[#E2E8F0] shadow-sm p-6 space-y-5">
-          
-          <div className="flex items-center justify-between pb-4 border-b border-[#F1F5F9]">
-            <div className="flex items-center gap-2.5">
-              <span className={`w-3 h-3 rounded-full ${
-                activeAlert.severity === 'CRITICAL' ? 'bg-[#DC2626]' :
-                activeAlert.severity === 'HIGH' ? 'bg-[#EA580C]' : 'bg-[#CA8A04]'
-              }`} />
-              <div>
-                <h3 className="text-[17px] font-bold text-[#0F172A]">{activeAlert.wellName} Event</h3>
-                <p className="text-[12px] text-[#64748B]">{activeAlert.category} · {activeAlert.type}</p>
-              </div>
+          {!activeAlert ? (
+            <div className="p-12 text-center text-[#64748B]">
+              <p className="text-[14px]">Select an alert from the list to view diagnostic analysis.</p>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between pb-4 border-b border-[#F1F5F9]">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-3 h-3 rounded-full ${
+                    activeAlert.severity === 'CRITICAL' ? 'bg-[#DC2626]' :
+                    activeAlert.severity === 'HIGH' ? 'bg-[#EA580C]' : 'bg-[#CA8A04]'
+                  }`} />
+                  <div>
+                    <h3 className="text-[17px] font-bold text-[#0F172A]">{activeAlert.wellName} Event</h3>
+                    <p className="text-[12px] text-[#64748B]">{activeAlert.category} · {activeAlert.alertType}</p>
+                  </div>
+                </div>
 
-            <span className="text-[12px] text-[#94A3B8] font-medium">{activeAlert.timestamp}</span>
-          </div>
-
-          {/* Metric Deviation Card */}
-          <div className="p-4 rounded bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-            <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wide">Telemetry Deviation</span>
-            <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-              <div className="p-2 rounded bg-white border border-[#E2E8F0]">
-                <span className="text-[10px] text-[#94A3B8] uppercase block">Parameter</span>
-                <strong className="text-[12px] text-[#0F172A]">{activeAlert.metric}</strong>
+                <span className="text-[12px] text-[#94A3B8] font-medium">{activeAlert.timestamp}</span>
               </div>
-              <div className="p-2 rounded bg-white border border-[#E2E8F0]">
-                <span className="text-[10px] text-[#94A3B8] uppercase block">Normal Limit</span>
-                <strong className="text-[12px] text-[#16A34A]">{activeAlert.threshold}</strong>
+
+              {/* Metric Deviation Card */}
+              <div className="p-4 rounded bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
+                <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wide">Telemetry Deviation</span>
+                <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                  <div className="p-2 rounded bg-white border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#94A3B8] uppercase block">Parameter</span>
+                    <strong className="text-[12px] text-[#0F172A]">{activeAlert.metric}</strong>
+                  </div>
+                  <div className="p-2 rounded bg-white border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#94A3B8] uppercase block">Normal Limit</span>
+                    <strong className="text-[12px] text-[#16A34A]">{activeAlert.threshold}</strong>
+                  </div>
+                  <div className="p-2 rounded bg-white border border-[#FCA5A5] bg-[#FEF2F2]">
+                    <span className="text-[10px] text-[#DC2626] uppercase block">Actual</span>
+                    <strong className="text-[12px] text-[#DC2626] font-black">{activeAlert.actual}</strong>
+                  </div>
+                </div>
               </div>
-              <div className="p-2 rounded bg-white border border-[#FCA5A5] bg-[#FEF2F2]">
-                <span className="text-[10px] text-[#DC2626] uppercase block">Actual</span>
-                <strong className="text-[12px] text-[#DC2626] font-black">{activeAlert.actual}</strong>
+
+              {/* Root Cause Analysis (AI / Physics) */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-[#0284C7]" />
+                  <h4 className="text-[13px] font-bold text-[#0F172A] uppercase tracking-wide">Root Cause Diagnosis</h4>
+                </div>
+                <p className="text-[13px] text-[#334155] leading-relaxed p-3.5 bg-[#F0F9FF] border border-[#BAE6FD] rounded">
+                  {activeAlert.rootCause}
+                </p>
               </div>
-            </div>
-          </div>
 
-          {/* Root Cause Analysis (AI / Physics) */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-[#0284C7]" />
-              <h4 className="text-[13px] font-bold text-[#0F172A] uppercase tracking-wide">Root Cause Diagnosis</h4>
-            </div>
-            <p className="text-[13px] text-[#334155] leading-relaxed p-3.5 bg-[#F0F9FF] border border-[#BAE6FD] rounded">
-              {activeAlert.rootCause}
-            </p>
-          </div>
-
-          {/* Recommended Action */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[#D32F2F]" />
-              <h4 className="text-[13px] font-bold text-[#0F172A] uppercase tracking-wide">AI Recommended Action</h4>
-            </div>
-            <p className="text-[13px] text-[#334155] leading-relaxed p-3.5 bg-[#FFFBEB] border border-[#FDE68A] rounded">
-              {activeAlert.recommendedAction}
-            </p>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="pt-3 border-t border-[#F1F5F9] flex flex-col gap-2.5">
-            {!activeAlert.acknowledged ? (
-              <button
-                onClick={() => handleAcknowledge(activeAlert.id)}
-                className="w-full py-2.5 bg-[#16A34A] hover:bg-[#15803D] text-white rounded text-[13px] font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Acknowledge Alert</span>
-              </button>
-            ) : (
-              <div className="p-2 bg-[#DCFCE7] text-[#15803D] text-center text-[12px] font-bold rounded flex items-center justify-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Acknowledged by Operational Staff</span>
+              {/* Recommended Action */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-[#D32F2F]" />
+                  <h4 className="text-[13px] font-bold text-[#0F172A] uppercase tracking-wide">AI Recommended Action</h4>
+                </div>
+                <p className="text-[13px] text-[#334155] leading-relaxed p-3.5 bg-[#FFFBEB] border border-[#FDE68A] rounded">
+                  {activeAlert.recommendedAction}
+                </p>
               </div>
-            )}
 
-            <button
-              onClick={() => navigate(`/app/digital-twin?well=${activeAlert.wellId}`)}
-              className="w-full py-2.5 bg-[#0F172A] hover:bg-[#1E293B] text-white rounded text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>Inspect in Digital Twin</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-[#F1F5F9] flex flex-col gap-2.5">
+                {!activeAlert.acknowledged ? (
+                  <button
+                    onClick={() => handleAcknowledge(activeAlert.id)}
+                    className="w-full py-2.5 bg-[#16A34A] hover:bg-[#15803D] text-white rounded text-[13px] font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Acknowledge Alert</span>
+                  </button>
+                ) : (
+                  <div className="p-2 bg-[#DCFCE7] text-[#15803D] text-center text-[12px] font-bold rounded flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Acknowledged by Operational Staff</span>
+                  </div>
+                )}
 
+                <button
+                  onClick={() => navigate(`/app/digital-twin?well=${activeAlert.wellId}`)}
+                  className="w-full py-2.5 bg-[#0F172A] hover:bg-[#1E293B] text-white rounded text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Inspect in Digital Twin</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
       </div>

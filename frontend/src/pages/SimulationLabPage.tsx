@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Play, Check, ArrowRight, RotateCcw, Cpu, Layers, 
-  Settings, Zap, BarChart2, ShieldCheck
+  Settings, Zap, BarChart2, ShieldCheck, CheckCircle2, AlertTriangle
 } from 'lucide-react';
+import { 
+  wellsApi, simulationApi, approvalsApi, 
+  type BackendWell, type SimulationResultRow, type SimulationResponse 
+} from '../services/api';
 
 export const SimulationLabPage: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedWell, setSelectedWell] = useState('BGW-014');
+  const [wells, setWells] = useState<BackendWell[]>([]);
+  const [selectedWell, setSelectedWell] = useState('BGW-001');
   const [scenarioName, setScenarioName] = useState('Optimized Cycle 01');
   const [scenarioMode, setScenarioMode] = useState<'current' | 'optimized' | 'custom'>('optimized');
+
+  // Preset data loaded from database
+  const [presetData, setPresetData] = useState<any>(null);
 
   // Simulation Parameters state (Screenshot 4)
   const [steamVol, setSteamVol] = useState<number>(735);
@@ -18,35 +26,127 @@ export const SimulationLabPage: React.FC = () => {
   const [spm, setSpm] = useState<number>(5.1);
   const [strokeLength, setStrokeLength] = useState<number>(66);
   const [vfd, setVfd] = useState<number>(36);
+
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [simulationData, setSimulationData] = useState<SimulationResponse | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  // Load wells list
+  useEffect(() => {
+    wellsApi.listWells().then(res => {
+      if (res.success && res.data.length > 0) {
+        setWells(res.data);
+      }
+    }).catch(console.error);
+  }, []);
+
+  // Load baseline preset when well changes
+  const loadPreset = useCallback(async (wellId: string) => {
+    try {
+      const res = await simulationApi.getPreset(wellId);
+      if (res.success && res.data) {
+        setPresetData(res.data);
+        const opt = res.data.optimized;
+        setSteamVol(opt.steamVolumeTon);
+        setPressure(opt.injectionPressureBar);
+        setSoakTime(opt.soakTimeHr);
+        setSpm(opt.spm);
+        setStrokeLength(opt.strokeLengthIn);
+        setVfd(opt.vfdFrequencyHz);
+
+        // Run simulation with initial setpoints
+        const simRes = await simulationApi.runSimulation({
+          well_id: wellId,
+          scenario_name: scenarioName,
+          scenario_mode: 'optimized',
+          steam_volume_ton: opt.steamVolumeTon,
+          injection_pressure_bar: opt.injectionPressureBar,
+          soak_time_hr: opt.soakTimeHr,
+          spm: opt.spm,
+          stroke_length_in: opt.strokeLengthIn,
+          vfd_frequency_hz: opt.vfdFrequencyHz,
+        });
+        if (simRes.success) {
+          setSimulationData(simRes.data);
+        }
+      }
+    } catch (err) {
+      console.error('Preset fetch error:', err);
+    }
+  }, [scenarioName]);
+
+  useEffect(() => {
+    loadPreset(selectedWell);
+  }, [selectedWell, loadPreset]);
 
   // Switch scenario preset
   const handleSelectMode = (mode: 'current' | 'optimized' | 'custom') => {
     setScenarioMode(mode);
+    if (!presetData) return;
+
     if (mode === 'current') {
-      setSteamVol(800);
-      setPressure(22);
-      setSoakTime(72);
-      setSpm(5.5);
-      setStrokeLength(68);
-      setVfd(38);
-      setScenarioName('Baseline Cycle');
+      const cur = presetData.current;
+      setSteamVol(cur.steamVolumeTon);
+      setPressure(cur.injectionPressureBar);
+      setSoakTime(cur.soakTimeHr);
+      setSpm(cur.spm);
+      setStrokeLength(cur.strokeLengthIn);
+      setVfd(cur.vfdFrequencyHz);
+      setScenarioName(`Baseline ${selectedWell}`);
     } else if (mode === 'optimized') {
-      setSteamVol(735);
-      setPressure(21);
-      setSoakTime(64);
-      setSpm(5.1);
-      setStrokeLength(66);
-      setVfd(36);
-      setScenarioName('Optimized Cycle 01');
+      const opt = presetData.optimized;
+      setSteamVol(opt.steamVolumeTon);
+      setPressure(opt.injectionPressureBar);
+      setSoakTime(opt.soakTimeHr);
+      setSpm(opt.spm);
+      setStrokeLength(opt.strokeLengthIn);
+      setVfd(opt.vfdFrequencyHz);
+      setScenarioName(`Optimized ${selectedWell}`);
     }
   };
 
-  const handleRunSimulation = () => {
+  const handleRunSimulation = async () => {
     setIsSimulating(true);
-    setTimeout(() => {
+    try {
+      const res = await simulationApi.runSimulation({
+        well_id: selectedWell,
+        scenario_name: scenarioName,
+        scenario_mode: scenarioMode,
+        steam_volume_ton: steamVol,
+        injection_pressure_bar: pressure,
+        soak_time_hr: soakTime,
+        spm: spm,
+        stroke_length_in: strokeLength,
+        vfd_frequency_hz: vfd,
+      });
+      if (res.success) {
+        setSimulationData(res.data);
+      }
+    } catch (err) {
+      console.error('Simulation error:', err);
+    } finally {
       setIsSimulating(false);
-    }, 700);
+    }
+  };
+
+  const handleSubmitApproval = async () => {
+    try {
+      const impactText = simulationData?.results[0]?.change
+        ? `${simulationData.results[0].change} Net Oil Rate`
+        : '+14% Net Oil Rate';
+      await approvalsApi.createApproval({
+        well_id: selectedWell,
+        recommendation: `Simulation Setpoints: Steam ${steamVol}t, SPM ${spm}, VFD ${vfd}Hz`,
+        impact: impactText,
+        submitted_by: `Simulation Lab (${scenarioName})`,
+        comment: `Physics simulation run completed. Confidence: ${simulationData?.recommendation?.confidenceScore || 88.5}%.`,
+        setpoints: { steamVol, pressure, soakTime, spm, strokeLength, vfd },
+      });
+      setSubmitSuccess(`Setpoints for ${selectedWell} submitted to Approvals queue!`);
+      setTimeout(() => navigate('/app/approvals'), 1200);
+    } catch (err) {
+      console.error('Submit approval error:', err);
+    }
   };
 
   return (
@@ -56,7 +156,7 @@ export const SimulationLabPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0]">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A] animate-pulse" />
             <span className="text-[12px] font-bold tracking-wider text-[#D32F2F] uppercase">Oil India Limited · Digital Twin Engine</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-[#0F172A] tracking-tight">
@@ -69,13 +169,20 @@ export const SimulationLabPage: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/app/digital-twin')}
+            onClick={() => navigate(`/app/digital-twin?well=${selectedWell}`)}
             className="px-3.5 py-2 bg-white border border-[#CBD5E1] rounded text-[13px] font-semibold text-[#334155] hover:bg-[#F8FAFC] shadow-xs transition-colors cursor-pointer"
           >
             Wellbore Twin →
           </button>
         </div>
       </div>
+
+      {submitSuccess && (
+        <div className="p-3.5 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg text-[13px] text-[#15803D] font-bold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>{submitSuccess}</span>
+        </div>
+      )}
 
       {/* ── Top Bar: Well Selector, Scenario Name, Preset Tabs (Screenshot 4) ── */}
       <div className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs flex flex-wrap items-center justify-between gap-4">
@@ -87,11 +194,9 @@ export const SimulationLabPage: React.FC = () => {
               onChange={(e) => setSelectedWell(e.target.value)}
               className="px-3 py-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded text-[14px] font-bold text-[#0F172A] focus:outline-none focus:border-[#005C53] cursor-pointer"
             >
-              <option value="BGW-014">BGW-014</option>
-              <option value="BGW-007">BGW-007</option>
-              <option value="BGW-021">BGW-021</option>
-              <option value="BGW-003">BGW-003</option>
-              <option value="BGW-005">BGW-005</option>
+              {wells.map(w => (
+                <option key={w.id} value={w.id}>{w.name || w.id}</option>
+              ))}
             </select>
           </div>
 
@@ -116,7 +221,7 @@ export const SimulationLabPage: React.FC = () => {
                 : 'text-[#475569] hover:text-[#0F172A]'
             }`}
           >
-            Current
+            Current Baseline
           </button>
           <button
             onClick={() => handleSelectMode('optimized')}
@@ -150,7 +255,7 @@ export const SimulationLabPage: React.FC = () => {
           {/* CSS Parameters Card */}
           <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
             <h4 className="text-[14px] font-bold text-[#0F172A] mb-4 pb-2 border-b border-[#F1F5F9]">
-              CSS Parameters
+              CSS Thermal Cycle Parameters
             </h4>
             <div className="space-y-3.5">
               <div className="flex items-center justify-between">
@@ -195,11 +300,11 @@ export const SimulationLabPage: React.FC = () => {
           {/* SRP Parameters Card */}
           <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
             <h4 className="text-[14px] font-bold text-[#0F172A] mb-4 pb-2 border-b border-[#F1F5F9]">
-              SRP Parameters
+              SRP Mechanical Artificial Lift Parameters
             </h4>
             <div className="space-y-3.5">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] font-semibold text-[#475569]">SPM (strokes)</span>
+                <span className="text-[13px] font-semibold text-[#475569]">SPM (strokes/min)</span>
                 <input
                   type="number"
                   step="0.1"
@@ -224,7 +329,7 @@ export const SimulationLabPage: React.FC = () => {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[13px] font-semibold text-[#475569]">VFD (Hz)</span>
+                <span className="text-[13px] font-semibold text-[#475569]">VFD Inverter (Hz)</span>
                 <input
                   type="number"
                   value={vfd}
@@ -238,15 +343,15 @@ export const SimulationLabPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Run Simulation Action Button (Screenshot 4 Matching) */}
+          {/* Run Simulation Action Button */}
           <div>
             <button
               onClick={handleRunSimulation}
               disabled={isSimulating}
-              className="w-full py-3 bg-[#005C53] hover:bg-[#004B44] text-white font-bold rounded-lg text-[14px] shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 bg-[#005C53] hover:bg-[#004B44] text-white font-bold rounded-lg text-[14px] shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Play className={`w-4 h-4 fill-white ${isSimulating ? 'animate-spin' : ''}`} />
-              <span>{isSimulating ? 'Simulating Dynamic Multiphase Reservoir Kinematics...' : 'Run Simulation'}</span>
+              <span>{isSimulating ? 'Simulating Coupled Reservoir-Wellbore Kinematics...' : 'Run Simulation'}</span>
             </button>
           </div>
 
@@ -258,7 +363,7 @@ export const SimulationLabPage: React.FC = () => {
           {/* Simulation Result Table Card */}
           <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
             <h4 className="text-[14px] font-bold text-[#0F172A] mb-4 pb-2 border-b border-[#F1F5F9]">
-              Simulation Result
+              Simulation Result vs Current Baseline
             </h4>
             
             <div className="overflow-x-auto">
@@ -266,50 +371,52 @@ export const SimulationLabPage: React.FC = () => {
                 <thead>
                   <tr className="bg-[#F8FAFC] text-[#475569] font-bold text-[11px] uppercase tracking-wider border-b border-[#E2E8F0]">
                     <th className="py-2.5 px-3">Parameter</th>
-                    <th className="py-2.5 px-3 text-right">Current</th>
-                    <th className="py-2.5 px-3 text-right">Scenario</th>
+                    <th className="py-2.5 px-3 text-right">Current (DB)</th>
+                    <th className="py-2.5 px-3 text-right">Simulated</th>
                     <th className="py-2.5 px-3 text-right">Change</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F1F5F9]">
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-3 px-3 font-semibold text-[#334155]">Production (BPD)</td>
-                    <td className="py-3 px-3 text-right font-medium text-[#64748B]">31.2</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#0F172A]">34.1</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#16A34A]">+9.3%</td>
-                  </tr>
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-3 px-3 font-semibold text-[#334155]">SOR</td>
-                    <td className="py-3 px-3 text-right font-medium text-[#64748B]">5.8</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#0F172A]">5.2</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#16A34A]">-10.3%</td>
-                  </tr>
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-3 px-3 font-semibold text-[#334155]">Energy (kWh/bbl)</td>
-                    <td className="py-3 px-3 text-right font-medium text-[#64748B]">42</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#0F172A]">38</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#16A34A]">-9.5%</td>
-                  </tr>
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-3 px-3 font-semibold text-[#334155]">Failure Risk</td>
-                    <td className="py-3 px-3 text-right font-medium text-[#64748B]">28%</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#0F172A]">18%</td>
-                    <td className="py-3 px-3 text-right font-bold text-[#16A34A]">-10.0%</td>
-                  </tr>
+                  {(simulationData?.results || []).map((row, idx) => (
+                    <tr key={idx} className="hover:bg-[#F8FAFC]">
+                      <td className="py-3 px-3 font-semibold text-[#334155]">{row.parameter}</td>
+                      <td className="py-3 px-3 text-right font-medium text-[#64748B]">{row.current}</td>
+                      <td className="py-3 px-3 text-right font-bold text-[#0F172A]">{row.scenario}</td>
+                      <td className={`py-3 px-3 text-right font-bold ${row.isPositive ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
+                        {row.change}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Scenario Recommended Banner (Screenshot 4 Bottom Right) */}
-          <div className="p-4 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] flex items-center gap-3.5 shadow-xs">
-            <div className="w-9 h-9 rounded-full bg-[#16A34A] flex items-center justify-center text-white shrink-0">
-              <Check className="w-5 h-5 stroke-[2.5]" />
+          {/* Scenario Recommended Banner */}
+          <div className={`p-4 rounded-lg border flex items-center gap-3.5 shadow-xs ${
+            simulationData?.recommendation?.status === 'Recommended'
+              ? 'bg-[#F0FDF4] border-[#BBF7D0]'
+              : 'bg-[#FEFCE8] border-[#FEF08A]'
+          }`}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0 ${
+              simulationData?.recommendation?.status === 'Recommended' ? 'bg-[#16A34A]' : 'bg-[#CA8A04]'
+            }`}>
+              {simulationData?.recommendation?.status === 'Recommended' ? (
+                <Check className="w-5 h-5 stroke-[2.5]" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+              )}
             </div>
             <div>
-              <h5 className="font-black text-[#15803D] text-[14px]">Scenario Recommended</h5>
-              <p className="text-[12px] text-[#166534] mt-0.5">
-                Meets all safety and operational constraints
+              <h5 className={`font-black text-[14px] ${
+                simulationData?.recommendation?.status === 'Recommended' ? 'text-[#15803D]' : 'text-[#854D0E]'
+              }`}>
+                Scenario {simulationData?.recommendation?.status || 'Recommended'}
+              </h5>
+              <p className={`text-[12px] mt-0.5 ${
+                simulationData?.recommendation?.status === 'Recommended' ? 'text-[#166534]' : 'text-[#713F12]'
+              }`}>
+                {simulationData?.recommendation?.message || 'Meets all safety and operational constraints'}
               </p>
             </div>
           </div>
@@ -317,7 +424,7 @@ export const SimulationLabPage: React.FC = () => {
           {/* Action forward to Engineering Approvals */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
-              onClick={() => navigate('/app/approvals')}
+              onClick={handleSubmitApproval}
               className="w-full py-3 bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-bold rounded text-[13px] shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Submit Simulation Setpoints for Field Approval</span>

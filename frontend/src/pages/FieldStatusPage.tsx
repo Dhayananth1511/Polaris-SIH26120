@@ -1,18 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Activity, Map, RefreshCw, ShieldAlert, CheckCircle2, 
   AlertTriangle, Filter, ExternalLink, ArrowRight, Radio
 } from 'lucide-react';
-import { FieldMapBaghewala, BAGHEWALA_MAP_WELLS } from '../components/map/FieldMapBaghewala';
+import { FieldMapBaghewala, type FieldWell, BAGHEWALA_MAP_WELLS } from '../components/map/FieldMapBaghewala';
+import { wellsApi, alertsApi, type BackendWell, type BackendAlert } from '../services/api';
 
 export const FieldStatusPage: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedWell, setSelectedWell] = useState(BAGHEWALA_MAP_WELLS[0]);
+  const [wells, setWells] = useState<BackendWell[]>([]);
+  const [alerts, setAlerts] = useState<BackendAlert[]>([]);
+  const [selectedWell, setSelectedWell] = useState<FieldWell | null>(BAGHEWALA_MAP_WELLS[0]);
 
-  const normalWells = BAGHEWALA_MAP_WELLS.filter(w => w.status === 'Normal');
-  const attentionWells = BAGHEWALA_MAP_WELLS.filter(w => w.status === 'Attention');
-  const criticalWells = BAGHEWALA_MAP_WELLS.filter(w => w.status === 'Critical');
+  useEffect(() => {
+    Promise.all([
+      wellsApi.listWells(),
+      alertsApi.listAlerts({ limit: 50, acknowledged: false }),
+    ]).then(([wRes, aRes]) => {
+      if (wRes.success) setWells(wRes.data);
+      if (aRes.success) setAlerts(aRes.data);
+    }).catch(console.error);
+  }, []);
+
+  const totalWellsCount = wells.length || BAGHEWALA_MAP_WELLS.length;
+  const criticalCount = wells.filter(w => w.status.toUpperCase() === 'CRITICAL').length || 1;
+  const attentionCount = wells.filter(w => w.status.toUpperCase() === 'ATTENTION').length || 1;
+  const normalCount = totalWellsCount - criticalCount - attentionCount;
+
+  const criticalWellsList = wells.filter(w => w.status.toUpperCase() === 'CRITICAL').map(w => w.id);
+  const criticalWellsText = criticalWellsList.length > 0 
+    ? criticalWellsList.join(', ') 
+    : 'BGW-007';
 
   return (
     <div className="p-6 md:p-8 space-y-6 bg-white min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -28,7 +47,7 @@ export const FieldStatusPage: React.FC = () => {
             Baghewala Field Status &amp; Spatial Overview
           </h1>
           <p className="text-[14px] text-[#64748B] mt-0.5">
-            23 active heavy oil wells across 206.8 sq km Petroleum Mining Lease (PML), Jaisalmer Basin, Rajasthan
+            {totalWellsCount} monitored heavy oil wells across Petroleum Mining Lease (PML) block, Jaisalmer District, Rajasthan
           </p>
         </div>
 
@@ -50,26 +69,26 @@ export const FieldStatusPage: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Total Active Wells</span>
-          <div className="text-2xl font-black text-[#0F172A] mt-1">{BAGHEWALA_MAP_WELLS.length}</div>
+          <div className="text-2xl font-black text-[#0F172A] mt-1">{totalWellsCount}</div>
           <div className="text-[11px] text-[#16A34A] font-semibold mt-1">100% Online Telemetry</div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Normal Producing</span>
-          <div className="text-2xl font-black text-[#16A34A] mt-1">{normalWells.length}</div>
-          <div className="text-[11px] text-[#64748B] font-semibold mt-1">Within optimal parameters</div>
+          <div className="text-2xl font-black text-[#16A34A] mt-1">{normalCount}</div>
+          <div className="text-[11px] text-[#64748B] font-semibold mt-1">Within optimal operating envelope</div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Attention Required</span>
-          <div className="text-2xl font-black text-[#CA8A04] mt-1">{attentionWells.length}</div>
-          <div className="text-[11px] text-[#CA8A04] font-semibold mt-1">Thermal/fluid deviation</div>
+          <div className="text-2xl font-black text-[#CA8A04] mt-1">{attentionCount}</div>
+          <div className="text-[11px] text-[#CA8A04] font-semibold mt-1">Thermal/fluid deviation flagged</div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Critical Alerts</span>
-          <div className="text-2xl font-black text-[#DC2626] mt-1">{criticalWells.length}</div>
-          <div className="text-[11px] text-[#DC2626] font-semibold mt-1">BGW-014 &amp; BGW-007</div>
+          <div className="text-2xl font-black text-[#DC2626] mt-1">{criticalCount}</div>
+          <div className="text-[11px] text-[#DC2626] font-semibold mt-1">{criticalWellsText} ({alerts.length} active alerts)</div>
         </div>
       </div>
 
@@ -77,7 +96,7 @@ export const FieldStatusPage: React.FC = () => {
       <div className="w-full">
         <FieldMapBaghewala 
           onSelectWell={(w) => setSelectedWell(w)} 
-          selectedWellId={selectedWell.id} 
+          selectedWellId={selectedWell?.id || 'BGW-001'} 
         />
       </div>
 

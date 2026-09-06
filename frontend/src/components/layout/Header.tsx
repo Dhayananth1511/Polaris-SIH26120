@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Search, ChevronDown, Clock, Settings, Menu } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import { useNavigate } from 'react-router-dom';
-import { ALERTS } from '../../data/mockData';
+import { alertsApi } from '../../services/api';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { toggleMobileMenu } = useUIStore();
   const navigate = useNavigate();
   const [showUser, setShowUser] = useState(false);
-  const unread = ALERTS.filter(a => !a.acknowledged).length;
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    alertsApi.listAlerts({ acknowledged: false, limit: 1 })
+      .then(res => { if (res.success) setUnread(res.total); })
+      .catch(() => {});
+    const t = setInterval(() => {
+      alertsApi.listAlerts({ acknowledged: false, limit: 1 })
+        .then(res => { if (res.success) setUnread(res.total); })
+        .catch(() => {});
+    }, 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const roleLabel: Record<string, string> = {
     operator: 'Field Operator',

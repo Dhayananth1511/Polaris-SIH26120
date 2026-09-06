@@ -1,73 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle2, Clock, XCircle, ShieldCheck, Check, X, FileText, 
-  ArrowRight, Download, Filter, Search, UserCheck
+  ArrowRight, Download, Filter, Search, UserCheck, RefreshCw, Loader2
 } from 'lucide-react';
-
-interface ApprovalItem {
-  id: string;
-  date: string;
-  wellId: string;
-  recommendation: string;
-  impact: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  comment?: string;
-  submittedBy: string;
-}
-
-const INITIAL_APPROVALS: ApprovalItem[] = [
-  { 
-    id: '1', 
-    date: '04 Nov 14:20', 
-    wellId: 'BGW-014', 
-    recommendation: 'Reduce SPM to 5.1', 
-    impact: '+14% Production', 
-    status: 'Pending', 
-    comment: 'Looks good. Within operating limits. -- Field Engineer',
-    submittedBy: 'AI Optimizer (XGBoost Engine)' 
-  },
-  { 
-    id: '2', 
-    date: '04 Nov 12:15', 
-    wellId: 'BGW-021', 
-    recommendation: 'Adjust steam volume', 
-    impact: '-8% SOR', 
-    status: 'Approved', 
-    comment: 'Approved by Field Manager - Vikram Nair',
-    submittedBy: 'CSS Optimizer' 
-  },
-  { 
-    id: '3', 
-    date: '03 Nov 16:40', 
-    wellId: 'BGW-007', 
-    recommendation: 'Increase soak time', 
-    impact: '+11% Production', 
-    status: 'Pending', 
-    comment: 'Thermal penetration simulation verified. Awaiting supervisor sign-off.',
-    submittedBy: 'AI Optimizer (Cycle Planner)' 
-  },
-  { 
-    id: '4', 
-    date: '03 Nov 11:30', 
-    wellId: 'BGW-003', 
-    recommendation: 'Optimize VFD', 
-    impact: '-7% Energy', 
-    status: 'Rejected', 
-    comment: 'Motor drive current fluctuation exceeds tolerance threshold.',
-    submittedBy: 'SRP Optimizer' 
-  },
-  { 
-    id: '5', 
-    date: '02 Nov 14:22', 
-    wellId: 'BGW-005', 
-    recommendation: 'Adjust injection pressure', 
-    impact: '+9% Production', 
-    status: 'Approved', 
-    comment: 'Approved by Lead Engineer Rajan Sharma',
-    submittedBy: 'Joint CSS+SRP Optimizer' 
-  },
-];
+import { approvalsApi, ApprovalItem } from '../services/api';
 
 interface ApprovalsPageProps {
   initialTab?: 'pending' | 'approved' | 'rejected' | 'audit';
@@ -76,26 +13,62 @@ interface ApprovalsPageProps {
 export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({ initialTab = 'pending' }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'audit'>(initialTab);
-  const [items, setItems] = useState<ApprovalItem[]>(INITIAL_APPROVALS);
-  const [selectedWellId, setSelectedWellId] = useState<string>('BGW-014');
+  const [items, setItems] = useState<ApprovalItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState<string>('Looks good. Within operating limits.\n\n-- Field Engineer');
 
-  const selectedItem = items.find(item => item.wellId === selectedWellId) || items[0];
-
-  const handleApprove = (wellId: string) => {
-    setItems(prev => prev.map(item => 
-      item.wellId === wellId 
-        ? { ...item, status: 'Approved', comment: commentText } 
-        : item
-    ));
+  const fetchApprovals = async () => {
+    setLoading(true);
+    try {
+      const res = await approvalsApi.listApprovals();
+      if (res && res.data) {
+        setItems(res.data);
+        if (res.data.length > 0 && selectedId === null) {
+          setSelectedId(res.data[0].id);
+          setCommentText(res.data[0].comment || 'Reviewed setpoint change. Parameters verified.\n\n-- Field Engineer');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load approvals:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = (wellId: string) => {
-    setItems(prev => prev.map(item => 
-      item.wellId === wellId 
-        ? { ...item, status: 'Rejected', comment: commentText } 
-        : item
-    ));
+  useEffect(() => {
+    fetchApprovals();
+  }, []);
+
+  const selectedItem = items.find(item => item.id === selectedId) || items[0];
+
+  const handleApprove = async (id: string) => {
+    setActionLoading(true);
+    try {
+      const res = await approvalsApi.updateStatus(id, 'Approved', commentText);
+      if (res && res.data) {
+        setItems(prev => prev.map(item => item.id === id ? res.data : item));
+      }
+    } catch (err) {
+      console.error('Failed to approve:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    setActionLoading(true);
+    try {
+      const res = await approvalsApi.updateStatus(id, 'Rejected', commentText);
+      if (res && res.data) {
+        setItems(prev => prev.map(item => item.id === id ? res.data : item));
+      }
+    } catch (err) {
+      console.error('Failed to reject:', err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const filteredItems = items.filter(item => {
@@ -160,102 +133,124 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({ initialTab = 'pend
 
       {/* ── Table Card (Screenshot 2 Exact Matching) ─────────────── */}
       <div className="bg-white rounded-lg border border-[#E2E8F0] shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[13px] border-collapse">
-            <thead>
-              <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-bold text-[11px] uppercase tracking-wider">
-                <th className="py-3.5 px-5">Date</th>
-                <th className="py-3.5 px-5">Well ID</th>
-                <th className="py-3.5 px-5">Recommendation</th>
-                <th className="py-3.5 px-5">Expected Impact</th>
-                <th className="py-3.5 px-5">Status</th>
-                <th className="py-3.5 px-5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1F5F9]">
-              {filteredItems.map(row => {
-                const isSelected = row.wellId === selectedWellId;
-                return (
-                  <tr 
-                    key={row.id} 
-                    className={`transition-colors cursor-pointer ${
-                      isSelected ? 'bg-[#F0FDF4]/70' : 'hover:bg-[#F8FAFC]'
-                    }`}
-                    onClick={() => {
-                      setSelectedWellId(row.wellId);
-                      setCommentText(row.comment || `Reviewed setpoint change for ${row.wellId}.\n\n-- Field Engineer`);
-                    }}
-                  >
-                    <td className="py-4 px-5 text-[#475569] font-medium">{row.date}</td>
-                    <td className="py-4 px-5 font-bold text-[#0F172A]">{row.wellId}</td>
-                    <td className="py-4 px-5 font-semibold text-[#1E293B]">{row.recommendation}</td>
-                    <td className="py-4 px-5 font-bold text-[#16A34A]">{row.impact}</td>
-                    <td className="py-4 px-5">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold ${
-                        row.status === 'Pending' ? 'bg-[#FEFCE8] text-[#CA8A04] border border-[#FEF08A]' :
-                        row.status === 'Approved' ? 'bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]' :
-                        'bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]'
-                      }`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-5 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedWellId(row.wellId);
-                          setCommentText(row.comment || `Reviewed setpoint change for ${row.wellId}.\n\n-- Field Engineer`);
-                        }}
-                        className="px-3.5 py-1.5 bg-[#005C53] hover:bg-[#004B44] text-white rounded text-[12px] font-bold shadow-xs transition-colors cursor-pointer"
-                      >
-                        Review
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div className="py-12 flex flex-col items-center justify-center text-[#64748B] gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-[#005C53]" />
+            <span className="text-[13px] font-semibold">Loading live recommendations from Neon DB...</span>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="py-12 text-center text-[#64748B] text-[13px]">
+            No {activeTab} approvals found in the governance log.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px] border-collapse">
+              <thead>
+                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-bold text-[11px] uppercase tracking-wider">
+                  <th className="py-3.5 px-5">Date / Time</th>
+                  <th className="py-3.5 px-5">Well ID</th>
+                  <th className="py-3.5 px-5">Recommendation</th>
+                  <th className="py-3.5 px-5">Expected Impact</th>
+                  <th className="py-3.5 px-5">Status</th>
+                  <th className="py-3.5 px-5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {filteredItems.map(row => {
+                  const isSelected = row.id === selectedId;
+                  return (
+                    <tr 
+                      key={row.id} 
+                      className={`transition-colors cursor-pointer ${
+                        isSelected ? 'bg-[#F0FDF4]/70' : 'hover:bg-[#F8FAFC]'
+                      }`}
+                      onClick={() => {
+                        setSelectedId(row.id);
+                        setCommentText(row.comment || `Reviewed setpoint change for ${row.wellId}.\n\n-- Field Engineer`);
+                      }}
+                    >
+                      <td className="py-4 px-5 text-[#475569] font-medium">{row.date}</td>
+                      <td className="py-4 px-5 font-bold text-[#0F172A]">{row.wellId}</td>
+                      <td className="py-4 px-5">
+                        <div className="font-semibold text-[#1E293B]">{row.recommendation}</div>
+                        <div className="text-[11px] text-[#64748B] mt-0.5">
+                          {Object.entries(row.setpoints || {}).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                        </div>
+                      </td>
+                      <td className="py-4 px-5 font-bold text-[#16A34A]">
+                        {row.impact}
+                      </td>
+                      <td className="py-4 px-5">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold ${
+                          row.status === 'Pending' ? 'bg-[#FEFCE8] text-[#CA8A04] border border-[#FEF08A]' :
+                          row.status === 'Approved' ? 'bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]' :
+                          'bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]'
+                        }`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-5 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedId(row.id);
+                            setCommentText(row.comment || `Reviewed setpoint change for ${row.wellId}.\n\n-- Field Engineer`);
+                          }}
+                          className="px-3.5 py-1.5 bg-[#005C53] hover:bg-[#004B44] text-white rounded text-[12px] font-bold shadow-xs transition-colors cursor-pointer"
+                        >
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Comments Card (Screenshot 2 Exact Matching) ──────────── */}
-      <div className="bg-white rounded-lg border border-[#E2E8F0] shadow-xs p-5 space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-          <h3 className="text-[16px] font-black text-[#0F172A] tracking-tight">
-            Comments ({selectedWellId})
-          </h3>
-          <span className="text-[12px] text-[#64748B]">
-            Target: <strong>{selectedItem?.recommendation}</strong> ({selectedItem?.impact})
-          </span>
+      {selectedItem && (
+        <div className="bg-white rounded-lg border border-[#E2E8F0] shadow-xs p-5 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+            <h3 className="text-[16px] font-black text-[#0F172A] tracking-tight">
+              Comments ({selectedItem.wellId})
+            </h3>
+            <span className="text-[12px] text-[#64748B]">
+              Target: <strong>{selectedItem.recommendation}</strong> ({selectedItem.impact})
+            </span>
+          </div>
+
+          <textarea
+            rows={3}
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            className="w-full p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-md text-[13px] text-[#0F172A] focus:outline-none focus:border-[#005C53]"
+            placeholder="Enter engineering notes or operational rationale..."
+          />
+
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <button
+              onClick={() => handleApprove(selectedItem.id)}
+              disabled={actionLoading || selectedItem.status === 'Approved'}
+              className="px-6 py-2.5 bg-[#005C53] hover:bg-[#004B44] disabled:opacity-50 text-white font-bold rounded text-[13px] shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <Check className="w-4 h-4 stroke-[3]" />
+              <span>{actionLoading ? 'Saving...' : 'Approve'}</span>
+            </button>
+
+            <button
+              onClick={() => handleReject(selectedItem.id)}
+              disabled={actionLoading || selectedItem.status === 'Rejected'}
+              className="px-6 py-2.5 bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50 text-white font-bold rounded text-[13px] shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <X className="w-4 h-4 stroke-[3]" />
+              <span>{actionLoading ? 'Saving...' : 'Reject'}</span>
+            </button>
+          </div>
         </div>
-
-        <textarea
-          rows={3}
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          className="w-full p-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-md text-[13px] text-[#0F172A] focus:outline-none focus:border-[#005C53]"
-          placeholder="Enter engineering notes or operational rationale..."
-        />
-
-        <div className="flex items-center justify-end gap-3 pt-1">
-          <button
-            onClick={() => handleApprove(selectedWellId)}
-            className="px-6 py-2.5 bg-[#005C53] hover:bg-[#004B44] text-white font-bold rounded text-[13px] shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
-          >
-            <Check className="w-4 h-4 stroke-[3]" />
-            <span>Approve</span>
-          </button>
-
-          <button
-            onClick={() => handleReject(selectedWellId)}
-            className="px-6 py-2.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold rounded text-[13px] shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
-          >
-            <X className="w-4 h-4 stroke-[3]" />
-            <span>Reject</span>
-          </button>
-        </div>
-      </div>
+      )}
 
     </div>
   );

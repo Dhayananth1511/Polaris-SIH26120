@@ -1,15 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, BarChart2, Download, Filter, Calendar, 
   Droplets, Flame, Activity, ArrowUpRight, ArrowDownRight, Layers
 } from 'lucide-react';
-import { FIELD_PRODUCTION_TREND } from '../data/mockData';
-import { BAGHEWALA_MAP_WELLS } from '../components/map/FieldMapBaghewala';
+import { wellsApi, type BackendWell } from '../services/api';
 
 export const ProductionPage: React.FC = () => {
   const navigate = useNavigate();
   const [selectedRange, setSelectedRange] = useState('30d');
+  const [productionTrend, setProductionTrend] = useState<any[]>([]);
+  const [fieldStats, setFieldStats] = useState<any>(null);
+  const [wells, setWells] = useState<BackendWell[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      wellsApi.fieldStats(),
+      wellsApi.listWells(),
+    ]).then(([statsRes, wellsRes]) => {
+      if (statsRes.success) setFieldStats(statsRes.data);
+      if (wellsRes.success) setWells(wellsRes.data);
+    }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const days = selectedRange === '7d' ? 7 : selectedRange === '14d' ? 14 : selectedRange === '90d' ? 90 : 30;
+    wellsApi.fieldProductionTrend(days).then(res => {
+      if (res.success) setProductionTrend(res.data);
+    }).catch(err => console.error('ProductionPage fetch error:', err))
+      .finally(() => setLoading(false));
+  }, [selectedRange]);
+
+  // Dynamic SVG Area & Line computation
+  const { pts, areaPath, linePath, gridMarks, xLabels } = useMemo(() => {
+    if (!productionTrend || productionTrend.length === 0) {
+      return { pts: [], areaPath: '', linePath: '', gridMarks: [], xLabels: [] };
+    }
+    const vals = productionTrend.map(p => Number(p.production) || 0);
+    const maxV = Math.max(...vals, 50);
+    const minV = Math.min(...vals, 0);
+    const range = Math.max(1, maxV - minV);
+
+    const step = range / 3;
+    const marks = [
+      { y: 40, label: `${Math.round(maxV)}` },
+      { y: 80, label: `${Math.round(maxV - step)}` },
+      { y: 120, label: `${Math.round(maxV - step * 2)}` },
+      { y: 160, label: `${Math.round(minV)}` },
+    ];
+
+    const points = productionTrend.map((pt, i) => {
+      const cx = 50 + (i / Math.max(1, productionTrend.length - 1)) * (770 - 50);
+      const cy = 160 - (((Number(pt.production) || 0) - minV) / range) * 120;
+      return { cx: Math.round(cx), cy: Math.round(cy), val: Math.round(Number(pt.production) || 0), date: pt.date };
+    });
+
+    const lPath = 'M ' + points.map(p => `${p.cx} ${p.cy}`).join(' L ');
+    const aPath = `${lPath} L ${points[points.length - 1].cx} 170 L ${points[0].cx} 170 Z`;
+
+    const dates = [];
+    const count = points.length;
+    if (count > 0) {
+      const idxs = [0, Math.floor(count * 0.2), Math.floor(count * 0.4), Math.floor(count * 0.6), Math.floor(count * 0.8), count - 1];
+      for (const idx of Array.from(new Set(idxs))) {
+        const item = points[idx];
+        if (item) {
+          const d = new Date(item.date);
+          const lbl = isNaN(d.getTime()) ? item.date : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+          dates.push({ cx: item.cx, label: lbl });
+        }
+      }
+    }
+
+    return { pts: points, areaPath: aPath, linePath: lPath, gridMarks: marks, xLabels: dates };
+  }, [productionTrend]);
+
+  // Sorted wells by production
+  const sortedWells = [...wells].sort((a, b) => b.oilProduction - a.oilProduction);
 
   return (
     <div className="p-6 md:p-8 space-y-6 bg-white min-h-screen text-[#1E293B]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -56,25 +124,34 @@ export const ProductionPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Net Crude Production</span>
-          <div className="text-3xl font-black text-[#0F172A] mt-1">2,840 <span className="text-[14px] font-normal text-[#64748B]">BPD</span></div>
+          <div className="text-3xl font-black text-[#0F172A] mt-1">
+            {fieldStats?.totalProduction ? Number(fieldStats.totalProduction).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '194.9'}{' '}
+            <span className="text-[14px] font-normal text-[#64748B]">BPD</span>
+          </div>
           <div className="text-[12px] font-bold text-[#16A34A] flex items-center gap-1 mt-1">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+8.4% vs last month</span>
+            <span>{fieldStats?.productionDelta || '+6.4% WoW'}</span>
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Gross Liquid Rate</span>
-          <div className="text-3xl font-black text-[#0F172A] mt-1">5,120 <span className="text-[14px] font-normal text-[#64748B]">BFPD</span></div>
-          <div className="text-[12px] font-bold text-[#64748B] mt-1">Water cut: 44.5%</div>
+          <div className="text-3xl font-black text-[#0F172A] mt-1">
+            {fieldStats?.totalProduction ? Math.round(Number(fieldStats.totalProduction) * 2.15).toLocaleString() : '418'}{' '}
+            <span className="text-[14px] font-normal text-[#64748B]">BFPD</span>
+          </div>
+          <div className="text-[12px] font-bold text-[#64748B] mt-1">Avg Water cut: 44.5%</div>
         </div>
 
         <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] uppercase">Average Field SOR</span>
-          <div className="text-3xl font-black text-[#0F172A] mt-1">5.8 <span className="text-[14px] font-normal text-[#64748B]">bbl/bbl</span></div>
+          <div className="text-3xl font-black text-[#0F172A] mt-1">
+            {fieldStats?.averageSOR ? Number(fieldStats.averageSOR).toFixed(2) : '0.22'}{' '}
+            <span className="text-[14px] font-normal text-[#64748B]">SOR</span>
+          </div>
           <div className="text-[12px] font-bold text-[#16A34A] flex items-center gap-1 mt-1">
             <ArrowDownRight className="w-3.5 h-3.5" />
-            <span>-10.2% efficiency gain</span>
+            <span>{fieldStats?.sorDelta || '-8.2% efficiency gain'}</span>
           </div>
         </div>
 
@@ -90,27 +167,22 @@ export const ProductionPage: React.FC = () => {
         <div className="flex items-center justify-between pb-3 border-b border-[#F1F5F9]">
           <div>
             <h3 className="text-[16px] font-bold text-[#0F172A]">Field Total Net Oil Production Trend</h3>
-            <p className="text-[12px] text-[#64748B]">Daily aggregate production (BPD) from all 23 Baghewala heavy oil wells</p>
+            <p className="text-[12px] text-[#64748B]">Daily aggregate production (BPD) across all monitored Baghewala heavy oil wells</p>
           </div>
           <span className="text-[12px] font-bold text-[#15803D] bg-[#F0FDF4] px-2.5 py-1 rounded border border-[#BBF7D0]">
-            Target: 3,000 BPD
+            Target: 220 BPD
           </span>
         </div>
 
         <div className="h-64 w-full pt-4">
           <svg viewBox="0 0 800 200" className="w-full h-full overflow-visible">
-            {/* Grid lines */}
-            {[40, 80, 120, 160].map(y => (
-              <line key={y} x1="40" y1={y} x2="780" y2={y} stroke="#F1F5F9" strokeWidth="1" />
+            {gridMarks.map(m => (
+              <g key={m.y}>
+                <line x1="40" y1={m.y} x2="780" y2={m.y} stroke="#F1F5F9" strokeWidth="1" />
+                <text x="30" y={m.y + 4} fill="#94A3B8" fontSize="10" textAnchor="end">{m.label}</text>
+              </g>
             ))}
 
-            {/* Y axis labels */}
-            <text x="30" y="45" fill="#94A3B8" fontSize="10" textAnchor="end">4K</text>
-            <text x="30" y="85" fill="#94A3B8" fontSize="10" textAnchor="end">3K</text>
-            <text x="30" y="125" fill="#94A3B8" fontSize="10" textAnchor="end">2K</text>
-            <text x="30" y="165" fill="#94A3B8" fontSize="10" textAnchor="end">1K</text>
-
-            {/* Gradient Fill */}
             <defs>
               <linearGradient id="prodGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#0284C7" stopOpacity="0.25" />
@@ -118,34 +190,29 @@ export const ProductionPage: React.FC = () => {
               </linearGradient>
             </defs>
 
-            {/* Area */}
-            <path
-              d="M 50 120 Q 150 115, 250 112 T 450 90 T 650 75 T 770 45 L 770 170 L 50 170 Z"
-              fill="url(#prodGrad)"
-            />
+            {areaPath && (
+              <path d={areaPath} fill="url(#prodGrad)" />
+            )}
 
-            {/* Production Trend Line */}
-            <path
-              d="M 50 120 Q 150 115, 250 112 T 450 90 T 650 75 T 770 45"
-              fill="none"
-              stroke="#0284C7"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
+            {linePath && (
+              <path
+                d={linePath}
+                fill="none"
+                stroke="#0284C7"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+              />
+            )}
 
-            {/* Points */}
-            {[
-              { cx: 50, cy: 120, label: '1 Oct' },
-              { cx: 170, cy: 115, label: '8 Oct' },
-              { cx: 310, cy: 110, label: '15 Oct' },
-              { cx: 470, cy: 90, label: '22 Oct' },
-              { cx: 630, cy: 75, label: '29 Oct' },
-              { cx: 770, cy: 45, label: '04 Nov' },
-            ].map((p, idx) => (
-              <g key={idx}>
-                <circle cx={p.cx} cy={p.cy} r="4.5" fill="#FFFFFF" stroke="#0284C7" strokeWidth="2.5" />
-                <text x={p.cx} y="190" fill="#94A3B8" fontSize="10" textAnchor="middle">{p.label}</text>
+            {pts.map((p, idx) => (
+              <g key={idx} className="group/pt">
+                <circle cx={p.cx} cy={p.cy} r="4.5" fill="#FFFFFF" stroke="#0284C7" strokeWidth="2.5" className="hover:r-6 transition-all cursor-pointer" />
+                <title>{`${p.val} BPD on ${p.date}`}</title>
               </g>
+            ))}
+
+            {xLabels.map((xl, idx) => (
+              <text key={idx} x={xl.cx} y="190" fill="#94A3B8" fontSize="10" textAnchor="middle">{xl.label}</text>
             ))}
           </svg>
         </div>
@@ -154,8 +221,8 @@ export const ProductionPage: React.FC = () => {
       {/* ── Well Production Ranking Table ────────────────────────── */}
       <div className="bg-white rounded-lg border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h4 className="text-[14px] font-bold text-[#0F172A]">Well-by-Well Extraction Performance (23 Wells)</h4>
-          <span className="text-[12px] text-[#64748B]">Sorted by daily crude volume</span>
+          <h4 className="text-[14px] font-bold text-[#0F172A]">Well-by-Well Extraction Performance ({sortedWells.length} Wells)</h4>
+          <span className="text-[12px] text-[#64748B]">Sorted by live daily crude volume</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -173,18 +240,18 @@ export const ProductionPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F1F5F9]">
-              {BAGHEWALA_MAP_WELLS.map(w => (
+              {sortedWells.map(w => (
                 <tr key={w.id} className="hover:bg-[#F8FAFC]">
-                  <td className="py-3 px-4 font-bold text-[#0F172A]">{w.name}</td>
-                  <td className="py-3 px-4 text-[#64748B]">{w.formation}</td>
+                  <td className="py-3 px-4 font-bold text-[#0F172A]">{w.name || w.id}</td>
+                  <td className="py-3 px-4 text-[#64748B]">{w.reservoir || 'Jodhpur Sandstone'}</td>
                   <td className="py-3 px-4 text-right font-black text-[#0F172A]">{w.oilProduction}</td>
-                  <td className="py-3 px-4 text-right font-medium text-[#475569]">{w.sor}</td>
+                  <td className="py-3 px-4 text-right font-medium text-[#475569]">{w.sor || 0.22}</td>
                   <td className="py-3 px-4 text-right font-medium text-[#475569]">{w.temperature}°C</td>
                   <td className="py-3 px-4 text-right font-bold text-[#0F172A]">{w.rodLoad}</td>
                   <td className="py-3 px-4 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
-                      w.status === 'Critical' ? 'bg-[#FEF2F2] text-[#DC2626]' :
-                      w.status === 'Attention' ? 'bg-[#FEFCE8] text-[#CA8A04]' :
+                      w.status.toUpperCase() === 'CRITICAL' ? 'bg-[#FEF2F2] text-[#DC2626]' :
+                      w.status.toUpperCase() === 'ATTENTION' ? 'bg-[#FEFCE8] text-[#CA8A04]' :
                       'bg-[#F0FDF4] text-[#16A34A]'
                     }`}>
                       {w.status}
@@ -192,7 +259,7 @@ export const ProductionPage: React.FC = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <button
-                      onClick={() => navigate(`/app/wells/${w.id}`)}
+                      onClick={() => navigate(`/app/digital-twin?well=${w.id}`)}
                       className="text-[12px] font-bold text-[#D32F2F] hover:underline cursor-pointer"
                     >
                       Digital Twin →

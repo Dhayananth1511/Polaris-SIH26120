@@ -1,27 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Filter, Download, ArrowUpDown, ChevronRight, 
   Layers, Activity, Eye, Zap, AlertTriangle, ShieldCheck 
 } from 'lucide-react';
-import { WELLS } from '../data/mockData';
-import type { Well } from '../types';
+import { wellsApi, type BackendWell } from '../services/api';
 
 export const WellExplorerPage: React.FC = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [riskFilter, setRiskFilter] = useState('ALL');
-  const [selectedWell, setSelectedWell] = useState<Well | null>(WELLS.find(w => w.id === 'BGW-014') || WELLS[0]);
+  const [wells, setWells] = useState<BackendWell[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedWell, setSelectedWell] = useState<BackendWell | null>(null);
+
+  const fetchWells = useCallback(async () => {
+    try {
+      const res = await wellsApi.listWells();
+      if (res.success) {
+        setWells(res.data);
+        if (!selectedWell) setSelectedWell(res.data[0] || null);
+      }
+    } catch (err) {
+      console.error('WellExplorer fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWells();
+    const interval = setInterval(fetchWells, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchWells]);
 
   // Filtering
-  const filtered = WELLS.filter(w => {
+  const filtered = wells.filter(w => {
     const matchSearch = w.name.toLowerCase().includes(search.toLowerCase()) ||
                         w.reservoir.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'ALL' || w.status.toUpperCase() === statusFilter.toUpperCase();
     const matchRisk   = riskFilter === 'ALL' || w.failureRisk.toUpperCase() === riskFilter.toUpperCase();
     return matchSearch && matchStatus && matchRisk;
   });
+
 
   const exportCSV = () => {
     const headers = 'Well ID,Status,CSS Phase,Oil BOPD,Temp C,Pressure MPa,Rod Load kN,Pump Eff %,Water Cut %,SOR,Risk\n';
@@ -121,7 +143,7 @@ export const WellExplorerPage: React.FC = () => {
         </div>
 
         <div className="text-[13px] text-[#64748B]">
-          Showing <strong className="text-[#0F172A]">{filtered.length}</strong> of {WELLS.length} wells
+          Showing <strong className="text-[#0F172A]">{filtered.length}</strong> of {wells.length} wells
         </div>
       </div>
 

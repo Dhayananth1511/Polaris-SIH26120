@@ -10,3 +10,9 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Datasets & Database raw files
+Dataset/
+dataset/
+datasets/
+database/

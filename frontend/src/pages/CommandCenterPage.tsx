@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Activity, AlertTriangle, ArrowUpRight, CheckCircle2, ChevronRight, 
@@ -6,33 +6,146 @@ import {
   Droplets, Flame, Settings, TrendingDown, Thermometer, Radio, Eye, Brain,
   Check, ArrowRight, X, Sliders, ShieldCheck, Compass
 } from 'lucide-react';
-import { WELLS, ALERTS, FIELD_STATS, FIELD_PRODUCTION_TREND } from '../data/mockData';
+import { wellsApi, alertsApi, type BackendWell, type BackendAlert } from '../services/api';
 import { FieldMapBaghewala } from '../components/map/FieldMapBaghewala';
 
 export const CommandCenterPage: React.FC = () => {
   const navigate = useNavigate();
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [alertsList, setAlertsList] = useState(ALERTS);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [trendRange, setTrendRange] = useState('Last 30 Days');
   const [showExplainModal, setShowExplainModal] = useState(false);
 
+  // ── Real data state ─────────────────────────────────────────────────────────
+  const [wells, setWells] = useState<BackendWell[]>([]);
+  const [alertsList, setAlertsList] = useState<BackendAlert[]>([]);
+  const [fieldStats, setFieldStats] = useState<any>(null);
+  const [productionTrend, setProductionTrend] = useState<any[]>([]);
+  const [primaryWellCss, setPrimaryWellCss] = useState<any>(null);
+  const [primaryWellSrp, setPrimaryWellSrp] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [wellsRes, alertsRes, statsRes, trendRes] = await Promise.all([
+        wellsApi.listWells(),
+        alertsApi.listAlerts({ limit: 20 }),
+        wellsApi.fieldStats(),
+        wellsApi.fieldProductionTrend(30),
+      ]);
+      if (wellsRes.success) {
+        setWells(wellsRes.data);
+        const firstWellId = wellsRes.data[0]?.id || 'BGW-001';
+        try {
+          const [cssRes, srpRes] = await Promise.all([
+            wellsApi.getCSSCycles(firstWellId),
+            wellsApi.getSRP(firstWellId, 30),
+          ]);
+          if (cssRes.success && cssRes.data.length > 0) {
+            setPrimaryWellCss(cssRes.data[cssRes.data.length - 1]);
+          }
+          if (srpRes.success && srpRes.data.length > 0) {
+            setPrimaryWellSrp(srpRes.data[0]);
+          }
+        } catch (e) {
+          console.error('Error fetching well CSS/SRP details:', e);
+        }
+      }
+      if (alertsRes.success) setAlertsList(alertsRes.data);
+      if (statsRes.success) setFieldStats(statsRes.data);
+      if (trendRes.success) setProductionTrend(trendRes.data);
+    } catch (err) {
+      console.error('CommandCenter fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, 30_000); // 30s auto-refresh
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
   // Filter wells
-  const filteredWells = WELLS.filter(w => {
+  const filteredWells = wells.filter(w => {
     const matchStatus = selectedStatus === 'ALL' || w.status.toUpperCase() === selectedStatus.toUpperCase();
     const matchSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         w.reservoir.toLowerCase().includes(searchQuery.toLowerCase());
     return matchStatus && matchSearch;
   });
 
-  const handleAcknowledge = (id: string) => {
-    setAlertsList(prev => prev.map(a => a.id === id ? { ...a, acknowledged: true } : a));
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await alertsApi.acknowledgeAlert(id);
+      setAlertsList(prev => prev.map(a => a.id === id ? { ...a, acknowledged: true } : a));
+    } catch (err) {
+      console.error('Acknowledge error:', err);
+    }
   };
+
+  // Refetch trend when user toggles range
+  useEffect(() => {
+    const days = trendRange === 'Last 7 Days' ? 7 : trendRange === 'Last 14 Days' ? 14 : 30;
+    wellsApi.fieldProductionTrend(days).then(res => {
+      if (res.success) setProductionTrend(res.data);
+    }).catch(console.error);
+  }, [trendRange]);
+
+  // Derive dynamic trend line from real productionTrend
+  const { trendPoints, trendPath, gridLabels, xLabels } = React.useMemo(() => {
+    if (!productionTrend || productionTrend.length === 0) {
+      return {
+        trendPoints: [],
+        trendPath: '',
+        gridLabels: [{ y: 20, label: '250' }, { y: 60, label: '200' }, { y: 100, label: '150' }, { y: 140, label: '100' }],
+        xLabels: [],
+      };
+    }
+    const values = productionTrend.map(p => Number(p.production) || 0);
+    const maxVal = Math.max(...values, 50);
+    const minVal = Math.min(...values, 0);
+    const range = Math.max(1, maxVal - minVal);
+
+    const step = range / 3;
+    const grid = [
+      { y: 20, label: `${Math.round(maxVal)}` },
+      { y: 60, label: `${Math.round(maxVal - step)}` },
+      { y: 100, label: `${Math.round(maxVal - step * 2)}` },
+      { y: 140, label: `${Math.round(minVal)}` },
+    ];
+
+    const pts = productionTrend.map((pt, i) => {
+      const x = 45 + (i / Math.max(1, productionTrend.length - 1)) * (485 - 45);
+      const val = Number(pt.production) || 0;
+      const y = 140 - ((val - minVal) / range) * 120;
+      return { x: Math.round(x), y: Math.round(y), val: Math.round(val), date: pt.date };
+    });
+
+    const path = pts.length > 0 ? 'M ' + pts.map(p => `${p.x},${p.y}`).join(' L ') : '';
+
+    const dateMarks: { x: number; label: string }[] = [];
+    const count = pts.length;
+    if (count > 0) {
+      const indices = [0, Math.floor(count * 0.25), Math.floor(count * 0.5), Math.floor(count * 0.75), count - 1];
+      const uniqueIndices = Array.from(new Set(indices));
+      for (const idx of uniqueIndices) {
+        const item = pts[idx];
+        if (item) {
+          const d = new Date(item.date);
+          const formatted = isNaN(d.getTime()) ? item.date : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+          dateMarks.push({ x: item.x, label: formatted });
+        }
+      }
+    }
+
+    return { trendPoints: pts, trendPath: path, gridLabels: grid, xLabels: dateMarks };
+  }, [productionTrend]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 600);
+    fetchAll().finally(() => setIsRefreshing(false));
   };
 
   return (
@@ -41,6 +154,14 @@ export const CommandCenterPage: React.FC = () => {
       {/* ── Page Header ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#E2E8F0]">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E8F5E9] text-[#16A34A] border border-[#BBF7D0]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+              LIVE TELEMETRY ACTIVE
+            </span>
+            <span className="text-[12px] font-medium text-[#64748B]">·</span>
+            <span className="text-[12px] font-medium text-[#64748B]">Bikaner-Nagaur Basin, Rajasthan</span>
+          </div>
 
           <h1 className="text-2xl md:text-3xl font-black text-[#0F172A] tracking-tight">
             Baghewala Field — Operational Command Center
@@ -55,10 +176,42 @@ export const CommandCenterPage: React.FC = () => {
       {/* ── 4 Key Performance Metrics Row ───────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Production', val: '2,840', unit: 'BPD', sub: '+8.4% WoW', subColor: '#15803D', icon: <Layers className="w-5 h-5 text-[#15803D]" />, bg: '#E8F5E9' },
-          { label: 'Average SOR', val: '5.8', unit: 'SOR', sub: '-10.2% Efficiency', subColor: '#15803D', icon: <Flame className="w-5 h-5 text-[#EA580C]" />, bg: '#FFEDD5' },
-          { label: 'Energy Consumption', val: '42', unit: 'kWh/bbl', sub: '-7.1% Power', subColor: '#15803D', icon: <Zap className="w-5 h-5 text-[#D97706]" />, bg: '#FEF3C7' },
-          { label: 'Equipment Health', val: '94%', unit: '23 Wells', sub: '23 Monitored Online', subColor: '#15803D', icon: <Activity className="w-5 h-5 text-[#0284C7]" />, bg: '#E0F2FE' },
+          { 
+            label: 'Total Production', 
+            val: fieldStats?.totalProduction ? Number(fieldStats.totalProduction).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '194.9', 
+            unit: 'BPD', 
+            sub: fieldStats?.productionDelta || '+6.4% WoW', 
+            subColor: '#15803D', 
+            icon: <Layers className="w-5 h-5 text-[#15803D]" />, 
+            bg: '#E8F5E9' 
+          },
+          { 
+            label: 'Average SOR', 
+            val: fieldStats?.averageSOR ? Number(fieldStats.averageSOR).toFixed(2) : '0.22', 
+            unit: 'SOR', 
+            sub: fieldStats?.sorDelta || '-8.2% Efficiency', 
+            subColor: '#15803D', 
+            icon: <Flame className="w-5 h-5 text-[#EA580C]" />, 
+            bg: '#FFEDD5' 
+          },
+          { 
+            label: 'Energy Consumption', 
+            val: fieldStats?.energyConsumption ? Math.round(fieldStats.energyConsumption).toString() : '533', 
+            unit: 'kWh/bbl', 
+            sub: fieldStats?.energyDelta || '-5.1% Power', 
+            subColor: '#15803D', 
+            icon: <Zap className="w-5 h-5 text-[#D97706]" />, 
+            bg: '#FEF3C7' 
+          },
+          { 
+            label: 'Equipment Health', 
+            val: `${fieldStats?.equipmentHealth || 63}%`, 
+            unit: `${fieldStats?.activeWells || wells.length} Wells`, 
+            sub: `${fieldStats?.activeWells || wells.length} Monitored Online`, 
+            subColor: '#15803D', 
+            icon: <Activity className="w-5 h-5 text-[#0284C7]" />, 
+            bg: '#E0F2FE' 
+          },
         ].map((kpi, idx) => (
           <div key={idx} className="bg-white p-5 rounded border border-[#E2E8F0] shadow-xs hover:shadow-sm transition-shadow">
             <div className="flex items-center justify-between mb-2">
@@ -90,24 +243,24 @@ export const CommandCenterPage: React.FC = () => {
                 <h3 className="text-[14px] font-bold text-[#0F172A]">Current CSS Cycle Status</h3>
               </div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FFEDD5] text-[#C2410C]">
-                Cycle #3 Active
+                Cycle #{primaryWellCss?.cycleNumber ?? 4} Active
               </span>
             </div>
             <p className="text-[12px] text-[#475569] mb-3">
-              Well <strong>BGW-014</strong> is currently in <strong>Production Phase</strong> following 735t steam injection &amp; 64h soak.
+              Well <strong>BGW-001</strong> is currently in <strong>Production Phase</strong> following {primaryWellCss?.steamVolumeTon ? Math.round(primaryWellCss.steamVolumeTon) : 1169}t steam injection &amp; {primaryWellCss?.soakTimeHr ?? 144}h soak.
             </p>
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Steam Injected</span>
-                <strong className="text-[#0F172A]">735 t</strong>
+                <strong className="text-[#0F172A]">{primaryWellCss?.steamVolumeTon ? Math.round(primaryWellCss.steamVolumeTon).toLocaleString() : '1,169'} t</strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Peak Temp</span>
-                <strong className="text-[#EA580C]">142 °C</strong>
+                <strong className="text-[#EA580C]">{primaryWellCss?.steamTemperatureC ? Math.round(primaryWellCss.steamTemperatureC) : 225} °C</strong>
               </div>
               <div>
-                <span className="text-[#94A3B8] block text-[10px]">Cumulative Oil</span>
-                <strong className="text-[#16A34A]">1,840 bbl</strong>
+                <span className="text-[#94A3B8] block text-[10px]">Current Rate</span>
+                <strong className="text-[#16A34A]">{wells[0]?.oilProduction ?? 28.5} BOPD</strong>
               </div>
             </div>
           </div>
@@ -129,24 +282,24 @@ export const CommandCenterPage: React.FC = () => {
                 <h3 className="text-[14px] font-bold text-[#0F172A]">SRP Mechanical Health</h3>
               </div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#E0F2FE] text-[#0369A1]">
-                94% Overall Health
+                {Math.round(primaryWellSrp?.pumpEfficiencyPct ?? wells[0]?.pumpEfficiency ?? 64)}% Overall Health
               </span>
             </div>
             <p className="text-[12px] text-[#475569] mb-3">
-              Surface unit running at <strong>5.1 SPM</strong> with 66" stroke. Dynamometer card indicates minor fluid pound under high viscosity.
+              Surface unit running at <strong>{primaryWellSrp?.spm ?? 5.96} SPM</strong> with <strong>{primaryWellSrp?.strokeLengthIn ? Math.round(primaryWellSrp.strokeLengthIn) : 132}" stroke</strong>. Dynamometer indicates stable mechanical lift.
             </p>
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Polished Rod Load</span>
-                <strong className="text-[#DC2626]">6.3 kN</strong>
+                <strong className="text-[#DC2626]">{primaryWellSrp?.polishedRodLoadKN ? Number(primaryWellSrp.polishedRodLoadKN).toFixed(1) : '16.9'} kN</strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Pump Efficiency</span>
-                <strong className="text-[#0F172A]">62 %</strong>
+                <strong className="text-[#0F172A]">{Math.round(primaryWellSrp?.pumpEfficiencyPct ?? 64)} %</strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">VFD Inverter</span>
-                <strong className="text-[#16A34A]">36 Hz</strong>
+                <strong className="text-[#16A34A]">{primaryWellSrp?.vfdFrequencyHz ? Number(primaryWellSrp.vfdFrequencyHz).toFixed(1) : '44.5'} Hz</strong>
               </div>
             </div>
           </div>
@@ -172,7 +325,7 @@ export const CommandCenterPage: React.FC = () => {
               </span>
             </div>
             <strong className="text-[13px] text-[#0F172A] block mb-1">
-              Well BGW-014: Reduce SPM to 5.1 &amp; VFD to 36 Hz
+              Well BGW-001: Reduce SPM to 5.1 &amp; VFD to 36 Hz
             </strong>
             <p className="text-[12px] text-[#475569] leading-relaxed mb-3">
               Expected Impact: <strong className="text-[#15803D]">+14% Net Oil Rate</strong>, <strong className="text-[#15803D]">-8% Rod Tension</strong>.
@@ -230,12 +383,7 @@ export const CommandCenterPage: React.FC = () => {
             {/* SVG Trend Chart */}
             <div className="relative h-48 w-full pt-2">
               <svg viewBox="0 0 500 170" className="w-full h-full overflow-visible">
-                {[
-                  { y: 20, label: '4K' },
-                  { y: 60, label: '3K' },
-                  { y: 100, label: '2K' },
-                  { y: 140, label: '1K' },
-                ].map(grid => (
+                {gridLabels.map(grid => (
                   <g key={grid.y}>
                     <line x1="35" y1={grid.y} x2="490" y2={grid.y} stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
                     <text x="5" y={grid.y + 4} fill="#94A3B8" fontSize="10" fontWeight="bold">{grid.label}</text>
@@ -255,47 +403,34 @@ export const CommandCenterPage: React.FC = () => {
                 </text>
 
                 {/* Blue Trend Line */}
-                <path
-                  d="M 45,102 L 95,95 L 145,93 L 195,91 L 245,82 L 295,73 L 345,74 L 395,68 L 445,71 L 485,55"
-                  fill="none"
-                  stroke="#0284C7"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                {trendPath && (
+                  <path
+                    d={trendPath}
+                    fill="none"
+                    stroke="#0284C7"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
 
                 {/* Circular Data Points */}
-                {[
-                  { x: 45, y: 102, val: '2,040' },
-                  { x: 95, y: 95, val: '2,180' },
-                  { x: 145, y: 93, val: '2,220' },
-                  { x: 195, y: 91, val: '2,260' },
-                  { x: 245, y: 82, val: '2,440' },
-                  { x: 295, y: 73, val: '2,820' },
-                  { x: 345, y: 74, val: '2,810' },
-                  { x: 395, y: 68, val: '2,920' },
-                  { x: 445, y: 71, val: '2,880' },
-                  { x: 485, y: 55, val: '3,480' },
-                ].map((pt, i) => (
-                  <circle 
-                    key={i} 
-                    cx={pt.x} 
-                    cy={pt.y} 
-                    r="3.5" 
-                    fill="#0284C7" 
-                    stroke="#FFFFFF" 
-                    strokeWidth="1.5" 
-                    className="hover:r-5 cursor-pointer transition-all"
-                  />
+                {trendPoints.map((pt, i) => (
+                  <g key={i} className="group/dot">
+                    <circle 
+                      cx={pt.x} 
+                      cy={pt.y} 
+                      r="3.5" 
+                      fill="#0284C7" 
+                      stroke="#FFFFFF" 
+                      strokeWidth="1.5" 
+                      className="hover:r-5 cursor-pointer transition-all"
+                    />
+                    <title>{`${pt.val} BPD on ${pt.date}`}</title>
+                  </g>
                 ))}
 
-                {[
-                  { x: 45, label: '1 Oct' },
-                  { x: 155, label: '8 Oct' },
-                  { x: 265, label: '15 Oct' },
-                  { x: 375, label: '22 Oct' },
-                  { x: 485, label: '31 Oct' },
-                ].map((d, i) => (
+                {xLabels.map((d, i) => (
                   <text key={i} x={d.x} y="162" textAnchor="middle" fill="#94A3B8" fontSize="10" fontWeight="500">
                     {d.label}
                   </text>
@@ -320,36 +455,35 @@ export const CommandCenterPage: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
-              {[
-                { well: 'BGW-014', desc: 'Elevated rod loading detected (6.3 kN)', time: '12 min ago', sev: 'CRITICAL', sevColor: '#DC2626', sevBg: '#FEE2E2', dotColor: '#DC2626' },
-                { well: 'BGW-021', desc: 'Reservoir temperature declining faster than model', time: '34 min ago', sev: 'HIGH', sevColor: '#EA580C', sevBg: '#FFEDD5', dotColor: '#EA580C' },
-                { well: 'BGW-007', desc: 'Production below expected range (-18%)', time: '1 hr ago', sev: 'MEDIUM', sevColor: '#CA8A04', sevBg: '#FEF9C3', dotColor: '#CA8A04' },
-                { well: 'BGW-003', desc: 'Sensor calibration drift anomaly detected', time: '2 hrs ago', sev: 'LOW', sevColor: '#16A34A', sevBg: '#DCFCE7', dotColor: '#16A34A' },
-              ].map((alert, i) => (
-                <div 
-                  key={i} 
-                  onClick={() => navigate(`/app/digital-twin?well=${alert.well}`)}
-                  className="p-2.5 rounded hover:bg-[#F8FAFC] border border-[#F1F5F9] flex items-center justify-between gap-3 text-[13px] transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: alert.dotColor }} />
-                    <strong className="font-bold text-[#0F172A] w-18 flex-shrink-0 group-hover:text-[#D32F2F] transition-colors">
-                      {alert.well}
-                    </strong>
-                    <span className="text-[#475569] truncate text-[13px]">{alert.desc}</span>
-                  </div>
+              {alertsList.slice(0, 4).map((alert) => {
+                const sevColor = alert.severity === 'CRITICAL' ? '#DC2626' : alert.severity === 'HIGH' ? '#EA580C' : alert.severity === 'MEDIUM' ? '#CA8A04' : '#16A34A';
+                const sevBg = alert.severity === 'CRITICAL' ? '#FEE2E2' : alert.severity === 'HIGH' ? '#FFEDD5' : alert.severity === 'MEDIUM' ? '#FEF9C3' : '#DCFCE7';
+                return (
+                  <div 
+                    key={alert.id} 
+                    onClick={() => navigate(`/app/digital-twin?well=${alert.wellId}`)}
+                    className="p-2.5 rounded hover:bg-[#F8FAFC] border border-[#F1F5F9] flex items-center justify-between gap-3 text-[13px] transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: sevColor }} />
+                      <strong className="font-bold text-[#0F172A] w-18 flex-shrink-0 group-hover:text-[#D32F2F] transition-colors">
+                        {alert.wellId}
+                      </strong>
+                      <span className="text-[#475569] truncate text-[13px]">{alert.message}</span>
+                    </div>
 
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-[11px] text-[#94A3B8]">{alert.time}</span>
-                    <span 
-                      className="px-2 py-0.5 rounded font-bold text-[10px] tracking-wider"
-                      style={{ color: alert.sevColor, backgroundColor: alert.sevBg }}
-                    >
-                      {alert.sev}
-                    </span>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-[11px] text-[#94A3B8]">{alert.timestamp}</span>
+                      <span 
+                        className="px-2 py-0.5 rounded font-bold text-[10px] tracking-wider"
+                        style={{ color: sevColor, backgroundColor: sevBg }}
+                      >
+                        {alert.severity}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -366,7 +500,7 @@ export const CommandCenterPage: React.FC = () => {
             <div className="w-1 h-5 bg-[#94A3B8] rounded-full" />
             <div>
               <h3 className="text-[18px] font-bold text-[#0F172A]">Baghewala Well Status Matrix</h3>
-              <p className="text-[13px] text-[#64748B]">Showing {filteredWells.length} of {WELLS.length} monitored wells</p>
+              <p className="text-[13px] text-[#64748B]">Showing {filteredWells.length} of {wells.length} monitored wells</p>
             </div>
           </div>
 
@@ -554,7 +688,7 @@ export const CommandCenterPage: React.FC = () => {
               <div className="flex items-center gap-2.5">
                 <Brain className="w-5 h-5 text-[#D32F2F]" />
                 <div>
-                  <h3 className="text-[17px] font-bold text-[#0F172A]">SHAP Explainability: Well BGW-014</h3>
+                  <h3 className="text-[17px] font-bold text-[#0F172A]">SHAP Explainability: Well BGW-001</h3>
                   <p className="text-[12px] text-[#64748B]">Feature attribution for recommended SPM 5.1 &amp; VFD 36 Hz</p>
                 </div>
               </div>
