@@ -75,7 +75,7 @@ export const Sidebar: React.FC = () => {
       <aside
         className={`
           hidden lg:flex flex-col flex-shrink-0 h-full bg-white text-[#0F172A] border-r border-[#E2E8F0] select-none transition-all duration-300 overflow-hidden
-          ${sidebarCollapsed ? 'w-[76px] min-w-[76px] max-w-[76px]' : 'w-[360px] min-w-[360px] max-w-[360px]'}
+          ${sidebarCollapsed ? 'w-[76px] min-w-[76px] max-w-[76px]' : 'w-[280px] min-w-[280px] max-w-[280px]'}
         `}
       >
         {/* Desktop Top Header Bar */}

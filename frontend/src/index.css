@@ -38,7 +38,7 @@
 
 /* ─── Base Reset ─────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
-html { font-size: 14px; scroll-behavior: smooth; }
+html { font-size: 13px; scroll-behavior: smooth; }
 
 body {
   margin: 0;
@@ -248,9 +248,9 @@ input[type="range"]::-webkit-slider-thumb {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 16px 18px;
+  padding: 12px 14px;
 }
-.kpi-value { font-size: 1.7rem; font-weight: 700; color: var(--navy-dark); line-height: 1.1; }
+.kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--navy-dark); line-height: 1.1; }
 .kpi-unit  { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-left: 3px; }
 .kpi-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
 .kpi-delta-up   { font-size: 0.72rem; color: var(--green); font-weight: 600; }
@@ -262,7 +262,7 @@ input[type="range"]::-webkit-slider-thumb {
   padding: 20px 24px;
   text-align: center;
 }
-.kpi-dark-value { font-size: 1.9rem; font-weight: 800; color: var(--oil-red); line-height: 1; }
+.kpi-dark-value { font-size: 1.6rem; font-weight: 800; color: var(--oil-red); line-height: 1; }
 .kpi-dark-unit  { font-size: 0.8rem; font-weight: 600; color: var(--oil-red); }
 .kpi-dark-label { font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: 5px; }
 
@@ -320,7 +320,7 @@ input[type="range"]::-webkit-slider-thumb {
 /* ─── Page Layout ────────────────────────────────────────────────────── */
 .app-shell  { display: flex; height: 100vh; overflow: hidden; }
 .main-area  { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-.page-content { flex: 1; overflow-y: auto; padding: 20px 24px; background: #FFFFFF; }
+.page-content { flex: 1; overflow-y: auto; padding: 16px 20px; background: #FFFFFF; }
 
 /* ─── Metric Row ─────────────────────────────────────────────────────── */
 .metric-row {
@@ -365,6 +365,6 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ─── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .page-content { padding: 14px; }
-  .kpi-value { font-size: 1.4rem; }
+  .page-content { padding: 10px 12px; }
+  .kpi-value { font-size: 1.2rem; }
 }
