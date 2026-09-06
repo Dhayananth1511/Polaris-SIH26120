@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: polaris-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-polaris_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-PolarisSecure2026!}
+      POSTGRES_DB: ${POSTGRES_DB:-polaris_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-polaris_admin} -d ${POSTGRES_DB:-polaris_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend Service ──────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: polaris-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-polaris_admin}:${POSTGRES_PASSWORD:-PolarisSecure2026!}@postgres:5432/${POSTGRES_DB:-polaris_db}
+      PORT: 8000
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost:80
+      JWT_SECRET: ${JWT_SECRET:-polaris_sih26120_super_secret_jwt_key_2026}
+    ports:
+      - "8000:8000"
+
+  # ── React Vite Frontend Service ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: polaris-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:

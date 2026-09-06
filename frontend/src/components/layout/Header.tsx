@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Search, ChevronDown, Clock, Settings, Menu } from 'lucide-react';
+import {
+  Bell,
+  Search,
+  ChevronDown,
+  Clock,
+  Settings,
+  Menu,
+  Play,
+  Pause,
+  RotateCcw,
+  SkipForward,
+  Activity,
+  ShieldAlert
+} from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import { useNavigate } from 'react-router-dom';
-import { alertsApi } from '../../services/api';
+import { alertsApi, replayApi, ReplayState } from '../../services/api';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -11,6 +24,46 @@ export const Header: React.FC = () => {
   const navigate = useNavigate();
   const [showUser, setShowUser] = useState(false);
   const [unread, setUnread] = useState(0);
+
+  // ── Telemetry Replay State ──
+  const [replayState, setReplayState] = useState<ReplayState | null>(null);
+
+  const fetchReplayStatus = () => {
+    replayApi.getStatus()
+      .then(res => { if (res.success && res.data) setReplayState(res.data); })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchReplayStatus();
+    const interval = setInterval(fetchReplayStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const togglePlayPause = async () => {
+    if (replayState?.isPlaying) {
+      const res = await replayApi.pause();
+      if (res.success) setReplayState(res.data);
+    } else {
+      const res = await replayApi.start();
+      if (res.success) setReplayState(res.data);
+    }
+  };
+
+  const handleStep = async () => {
+    const res = await replayApi.step(1);
+    if (res.success) setReplayState(res.data);
+  };
+
+  const handleReset = async () => {
+    const res = await replayApi.reset();
+    if (res.success) setReplayState(res.data);
+  };
+
+  const handleSpeedChange = async (speed: number) => {
+    const res = await replayApi.setSpeed(speed);
+    if (res.success) setReplayState(res.data);
+  };
 
   useEffect(() => {
     alertsApi.listAlerts({ acknowledged: false, limit: 1 })
@@ -74,15 +127,84 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* ── CENTER: Search Bar ──────────────────────────────────── */}
-      <div className="flex-1 max-w-xl mx-2 hidden md:flex items-center">
-        <div className="relative w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#94A3B8]" />
-          <input
-            type="search"
-            placeholder="Search well ID, telemetry parameter, model alert..."
-            className="w-full pl-11 pr-4 py-2.5 text-[14px] bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-[#0F172A] placeholder-[#94A3B8] outline-none focus:border-[#D32F2F] focus:bg-white focus:ring-2 focus:ring-[#D32F2F]/15 transition-all font-medium"
-          />
+      {/* ── CENTER: TELEMETRY REPLAY ENGINE TOOLBAR (SIH26120 Section 29 & 55) ── */}
+      <div className="flex-1 max-w-2xl mx-2 hidden xl:flex items-center justify-center gap-3">
+        <div className="flex items-center gap-2 bg-[#F8FAFC] px-3.5 py-1.5 rounded-2xl border border-[#CBD5E1] shadow-2xs">
+          
+          {/* Status Indicator */}
+          <div className="flex items-center gap-1.5 pr-2 border-r border-[#E2E8F0]">
+            <span className={`w-2.5 h-2.5 rounded-full ${replayState?.isPlaying ? 'bg-[#16A34A] animate-ping' : 'bg-[#D32F2F]'}`} />
+            <span className="text-[11px] font-black text-[#0F172A] tracking-wider uppercase">
+              {replayState?.simulatedLiveLabel || 'SIMULATED LIVE DATA'}
+            </span>
+          </div>
+
+          {/* Active Well Badge */}
+          <div className="text-[12px] font-bold text-[#475569] pr-2 border-r border-[#E2E8F0]">
+            Well: <span className="text-[#0F172A] font-black">{replayState?.activeWellId || 'BGW-001'}</span>
+          </div>
+
+          {/* Transport Controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={togglePlayPause}
+              className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                replayState?.isPlaying
+                  ? 'bg-[#D32F2F] text-white hover:bg-[#B71C1C]'
+                  : 'bg-[#16A34A] text-white hover:bg-[#15803D]'
+              }`}
+              title={replayState?.isPlaying ? "Pause simulated telemetry" : "Play simulated telemetry"}
+            >
+              {replayState?.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={handleStep}
+              className="p-1.5 rounded-lg bg-white border border-[#CBD5E1] text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors cursor-pointer"
+              title="Step forward one telemetry frame"
+            >
+              <SkipForward className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleReset}
+              className="p-1.5 rounded-lg bg-white border border-[#CBD5E1] text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors cursor-pointer"
+              title="Reset replay to beginning"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Speed Selector */}
+          <div className="flex items-center gap-0.5 bg-white p-0.5 rounded-lg border border-[#CBD5E1] ml-1">
+            {[1, 5, 10, 50].map((s) => (
+              <button
+                key={s}
+                onClick={() => handleSpeedChange(s)}
+                className={`px-1.5 py-0.5 text-[10.5px] font-black rounded cursor-pointer transition-all ${
+                  (replayState?.speed || 1) === s
+                    ? 'bg-[#0F172A] text-white'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                {s}x
+              </button>
+            ))}
+          </div>
+
+          {/* Simulation Time / Frame */}
+          <div className="text-[11px] font-mono text-[#64748B] pl-2 border-l border-[#E2E8F0] whitespace-nowrap">
+            F: {replayState ? `${replayState.currentIndex + 1}/${replayState.totalFrames}` : 'Live'}
+          </div>
+        </div>
+
+        {/* Prototype Mode Pill */}
+        <div
+          className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#FFEBEE] border border-[#FFCDD2] text-[#D32F2F] text-[11px] font-bold cursor-help"
+          title="AI recommendations are decision-support outputs and require engineer validation before operational use."
+        >
+          <ShieldAlert className="w-3.5 h-3.5" />
+          <span>Prototype Mode</span>
         </div>
       </div>
 

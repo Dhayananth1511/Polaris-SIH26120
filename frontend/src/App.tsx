@@ -14,8 +14,10 @@ import { CssOptimizerPage }    from './pages/CssOptimizerPage';
 import { OptimizationPage }    from './pages/OptimizationPage';
 import { ApprovalsPage }       from './pages/ApprovalsPage';
 import { AIIntelligencePage }  from './pages/AIIntelligencePage';
-import { ReportsPage }         from './pages/ReportsPage';
 import { AlertsPage }          from './pages/AlertsPage';
+import { ReportsPage }         from './pages/ReportsPage';
+import { ReservoirMonitorPage } from './pages/ReservoirMonitorPage';
+import { SrpDiagnosticsPage }   from './pages/SrpDiagnosticsPage';
 import { AdminManagementPage } from './pages/AdminManagementPage';
 import { useAuthStore }        from './store/authStore';
 
@@ -50,18 +52,26 @@ export const App: React.FC = () => (
           <PrivateRoute>
             <AppLayout>
               <Routes>
-                {/* ── COMMAND CENTER ───────────────────────────────── */}
+                {/* ── 12 CANONICAL SIH26120 PAGES ──────────────────── */}
+                <Route path="overview"         element={<CommandCenterPage />} />
                 <Route path="command-center"   element={<CommandCenterPage />} />
                 <Route path="field-status"     element={<FieldStatusPage />} />
-
-                {/* ── FIELD OPERATIONS ─────────────────────────────── */}
-                <Route path="css-operations"   element={<CssOptimizerPage />} />
-                <Route path="srp-operations"   element={<SrpOptimizerPage />} />
-                <Route path="srp-diagnostics"  element={<SrpOptimizerPage />} />
-
-                {/* ── DIGITAL TWIN ─────────────────────────────────── */}
                 <Route path="digital-twin"     element={<DigitalTwinPage tab="twin" />} />
+                <Route path="reservoir"        element={<ReservoirMonitorPage />} />
+                <Route path="css-optimizer"    element={<CssOptimizerPage />} />
+                <Route path="css-operations"   element={<CssOptimizerPage />} />
+                <Route path="srp-diagnostics"  element={<SrpDiagnosticsPage />} />
+                <Route path="srp-optimizer"    element={<SrpOptimizerPage />} />
+                <Route path="srp-operations"   element={<SrpOptimizerPage />} />
+                <Route path="joint-optimizer"  element={<OptimizationPage tab="joint" />} />
+                <Route path="smart-optimization" element={<OptimizationPage tab="joint" />} />
+                <Route path="what-if"          element={<SimulationLabPage />} />
                 <Route path="simulation-lab"   element={<SimulationLabPage />} />
+                <Route path="alerts"           element={<AlertsPage />} />
+                <Route path="historical-analysis" element={<ProductionPage />} />
+                <Route path="production"       element={<ProductionPage />} />
+                <Route path="recommendations"  element={<ApprovalsPage initialTab="pending" />} />
+                <Route path="system-status"    element={<AdminManagementPage initialTab="health" />} />
 
                 {/* ── INTELLIGENCE ─────────────────────────────────── */}
                 <Route path="well-intelligence" element={<WellExplorerPage />} />

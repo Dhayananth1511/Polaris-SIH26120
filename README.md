@@ -1,293 +1,109 @@
-# POLARIS — Heavy Oil Digital Twin & Optimization Platform
+# POLARIS — AI-Enabled Well-to-Surface Digital Twin
 
-> **Oil India Limited · Baghewala Field Operations**  
-> Real-time telemetry, CSS thermal cycle management, SRP diagnostics and AI-driven joint optimization for heavy oil wellbores.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-  - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Backend Setup](#2-backend-setup)
-  - [3. Frontend Setup](#3-frontend-setup)
-  - [4. Running the App](#4-running-the-app)
-- [Environment Variables](#environment-variables)
-- [First-Time Admin Setup](#first-time-admin-setup)
-- [Default Login Credentials](#default-login-credentials)
-- [Available Scripts](#available-scripts)
-- [Contributing](#contributing)
+> **Smart India Hackathon 2026 | Problem Statement ID: SIH26120**  
+> **Organization**: Oil India Limited  
+> **Theme**: Smart Automation | **Category**: Software  
+> **Digital Twin for Well-to-Surface Optimization of Cyclic Steam Stimulation (CSS) and Sucker Rod Pump (SRP) Operations for Heavy Oil Wells of Baghewala Field.**
 
 ---
 
-## Overview
-
-POLARIS is a full-stack web platform for monitoring and optimizing heavy oil production at Oil India Limited's Baghewala PML field (Jaisalmer District, Rajasthan). It combines:
-
-- 🛰️ **Live satellite field map** (Leaflet + Google Hybrid) with 23 BGW well pins
-- 🌡️ **CSS thermal cycle tracking** — steam injection, soak & production phases
-- ⚙️ **SRP mechanical diagnostics** — rod load, pump efficiency, dynamometer data
-- 🤖 **AI surrogate model recommendations** — XGBoost + Boberg-Lantz residuals
-- 👤 **Role-based access** — Field Operator & System Administrator
+> [!IMPORTANT]
+> **Prototype Mode — Synthetic / Simulated Data Notice**:  
+> This software prototype was developed using synthetic/simulated operational datasets (`well_master.csv`, `well_telemetry.csv`, `css_cycles.csv`, `production.csv`, `srp_operations.csv`, `dynamometer_cards.csv`, `failure_events.csv`). It does not claim to represent actual unblinded Baghewala field telemetry.  
+> **Decision-Support Classification**: All AI recommendations are decision-support outputs and strictly require engineer validation before operational use.
 
 ---
 
-## Tech Stack
+## 1. Executive Summary
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 |
-| **Routing** | React Router v7 |
-| **State** | Zustand |
-| **Map** | Leaflet.js + Google Hybrid tiles |
-| **Charts** | Recharts |
-| **3D** | React Three Fiber / Three.js |
-| **Backend** | FastAPI (Python 3.11+) |
-| **Database** | PostgreSQL 15+ (async via asyncpg + SQLAlchemy) |
-| **Auth** | JWT (access + refresh tokens), Argon2id password hashing |
-| **Migrations** | Alembic |
+Heavy oil recovery at the Baghewala PML field (17–19° API crude, Jodhpur Sandstone) presents acute physical challenges:
+- High crude viscosity exceeding 2,000 cP at natural reservoir temperatures (48°C)
+- Severe downstroke rod floating and fluid pound hazards on Sucker Rod Pumps
+- Disconnected optimization between reservoir steam injection and surface pump kinematics
+- High Steam-Oil Ratio (SOR) and excessive mechanical failure rates
+
+**POLARIS** solves this through an end-to-end, Physics-Informed Digital Twin coupling Boberg-Lantz reservoir thermal decay, ASTM D341 Walther viscosity correlation, hydrodynamic rod drag modeling, and multi-objective Pareto optimization.
 
 ---
 
-## Project Structure
+## 2. The 12 UI Pages
 
-```
-Polaris-SIH26120/
-├── frontend/               # React + Vite app
-│   ├── src/
-│   │   ├── components/     # Reusable UI components (layout, map, ui)
-│   │   ├── pages/          # Route-level page components
-│   │   ├── store/          # Zustand state stores
-│   │   ├── services/       # API client (axios)
-│   │   ├── data/           # Mock/static data
-│   │   └── types/          # TypeScript types
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── backend/                # FastAPI Python app
-│   ├── app/
-│   │   ├── routes/         # API route handlers (auth, admin)
-│   │   ├── services/       # Business logic
-│   │   ├── repositories/   # DB query layer
-│   │   ├── models/         # SQLAlchemy models
-│   │   ├── schemas/        # Pydantic request/response schemas
-│   │   ├── core/           # JWT, security, cookies
-│   │   ├── middleware/      # Auth, rate-limit, CORS
-│   │   └── config/         # App settings (pydantic-settings)
-│   ├── alembic/            # DB migrations
-│   ├── scripts/            # Bootstrap scripts
-│   ├── tests/              # Pytest test suite
-│   ├── requirements.txt
-│   └── .env.example
-│
-└── README.md
-```
+1. **Page 1: Overview** (`/app/overview`) — Field-level KPIs, production trends, active well health cards, alert summaries, and Digital Twin status strip.
+2. **Page 2: Well Digital Twin** (`/app/digital-twin`) — Synchronized virtual representation linking Reservoir $\to$ Thermal State $\to$ Viscosity $\to$ Wellbore $\to$ SRP $\to$ Production.
+3. **Page 3: Reservoir Monitor** (`/app/reservoir`) — Downhole temperature/pressure history, ASTM Walther viscosity response, and 1/3/7-day thermal forecasts.
+4. **Page 4: CSS Optimization** (`/app/css-optimizer`) — Multi-objective Pareto optimization of steam volume, injection pressure, and soak time to minimize SOR.
+5. **Page 5: SRP Diagnostics** (`/app/srp-diagnostics`) — Interactive Position vs. Load Dynamometer Card (Surface and Downhole work loops), rod floating detection, and impact loading risk.
+6. **Page 6: SRP Optimization** (`/app/srp-optimizer`) — SPM, stroke length, and 4-stage VFD kinematic schedule ensuring operation below critical rod float speed ($SPM_{crit}$).
+7. **Page 7: Joint Optimization** (`/app/joint-optimizer`) — Simultaneous multi-objective optimization across both CSS thermal stimulation and SRP artificial lift.
+8. **Page 8: What-If Simulator** (`/app/what-if`) — Interactive slider sandbox comparing baseline vs. proposed scenarios with KPI deltas (+8.4% oil, -12.2% SOR, -14.3% rod float risk).
+9. **Page 9: Failure & Alerts** (`/app/alerts`) — Anomaly detection scan (Isolation Forest) and multi-label fault classification (rod float, fluid pound, gas interference).
+10. **Page 10: Historical Analysis** (`/app/historical-analysis`) — Multi-well production histories, CSS cycle comparisons, cumulative oil, and downtime records.
+11. **Page 11: Recommendations** (`/app/recommendations`) — Explainable AI action feed with confidence, physical rationale, safety constraints, and engineer Review/Approve/Reject workflow.
+12. **Page 12: System Status** (`/app/system-status`) — Database connection status, dataset record counts, ML model readiness metrics ($R^2$, $RMSE$), and calibration configuration.
 
 ---
 
-## Prerequisites
+## 3. Real-Time Telemetry Replay Engine
 
-Make sure the following are installed before you begin:
-
-| Tool | Version | Download |
-|---|---|---|
-| **Node.js** | 20+ | https://nodejs.org |
-| **npm** | 10+ | Comes with Node.js |
-| **Python** | 3.11+ | https://python.org |
-| **PostgreSQL** | 15+ | https://postgresql.org |
-| **Git** | Any | https://git-scm.com |
+Since hardware sensors (ESP32, Arduino, SCADA controllers) are deliberately excluded per the software prototype constraints:
+- Built-in **Telemetry Replay Engine** replays rows from `well_telemetry.csv`.
+- Header transport controls: `[▶ PLAY]`, `[❚❚ PAUSE]`, `[↺ RESET]`, `[⏭ STEP]`, and Speed selection (`1x`, `5x`, `10x`, `50x`).
+- Clearly identified by the **"SIMULATED LIVE DATA"** indicator badge.
 
 ---
 
-## Getting Started
+## 4. Quick Start (Single Command via Docker)
 
-### 1. Clone the Repository
+Start the entire system (PostgreSQL, FastAPI Backend, React Frontend):
 
 ```bash
-git clone https://github.com/Dhayananth1511/Polaris-SIH26120.git
-cd Polaris-SIH26120
+docker compose up --build
 ```
 
-To use a specific branch (e.g. `dhaya`):
-
-```bash
-git clone -b dhaya https://github.com/Dhayananth1511/Polaris-SIH26120.git
-cd Polaris-SIH26120
-```
+Access the applications:
+- **Frontend Dashboard**: `http://localhost:3000`
+- **Backend Swagger API Docs**: `http://localhost:8000/api/docs`
+- **PostgreSQL**: `localhost:5432`
 
 ---
 
-### 2. Backend Setup
+## 5. Local Development Setup
 
-#### a) Create a PostgreSQL database
-
-```sql
-CREATE USER polaris WITH PASSWORD 'changeme';
-CREATE DATABASE polaris_db OWNER polaris;
-```
-
-#### b) Create and activate a virtual environment
-
-```bash
+### 5.1 Backend Setup
+```powershell
 cd backend
-
-# Windows
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# macOS / Linux
-python -m venv .venv
-source .venv/bin/activate
-```
-
-#### c) Install Python dependencies
-
-```bash
 pip install -r requirements.txt
+
+# Inspect and validate datasets
+python scripts/inspect_data.py
+python scripts/validate_data.py
+
+# Ingest datasets & bootstrap database
+python scripts/seed_database.py
+
+# Train ML models
+python scripts/train_models.py
+
+# Start backend server
+python app/server.py
 ```
 
-#### d) Set up environment variables
-
-```bash
-# Copy the example file
-cp .env.example .env
-```
-
-Open `.env` and fill in your values (see [Environment Variables](#environment-variables)).
-
-#### e) Run database migrations
-
-```bash
-alembic upgrade head
-```
-
-#### f) Bootstrap the first admin user *(one-time only)*
-
-```bash
-python scripts/bootstrap_admin.py
-```
-
-> ⚠️ After running this once, clear `BOOTSTRAP_ADMIN_PASSWORD` from your `.env` file.
-
----
-
-### 3. Frontend Setup
-
-```bash
+### 5.2 Frontend Setup
+```powershell
 cd frontend
 npm install
-```
-
----
-
-### 4. Running the App
-
-Open **two terminals**:
-
-**Terminal 1 — Backend API**
-```bash
-cd backend
-.\.venv\Scripts\Activate.ps1   # Windows
-# or: source .venv/bin/activate  # macOS/Linux
-
-python app/server.py
-# API runs at http://localhost:8000
-```
-
-**Terminal 2 — Frontend Dev Server**
-```bash
-cd frontend
+npm run build
 npm run dev
-# App runs at http://localhost:5173
 ```
 
-Open your browser at **http://localhost:5173**
-
 ---
 
-## Environment Variables
+## 6. Verification & Testing
 
-Copy `backend/.env.example` → `backend/.env` and set these values:
-
-| Variable | Description | Example |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL async connection string | `postgresql+asyncpg://polaris:changeme@localhost:5432/polaris_db` |
-| `JWT_ACCESS_SECRET` | Secret for access tokens (min 64 chars) | `python -c "import secrets; print(secrets.token_hex(64))"` |
-| `JWT_REFRESH_SECRET` | Secret for refresh tokens (different from above) | *(same command, different output)* |
-| `ACCESS_TOKEN_EXPIRES_IN` | Access token lifetime in **minutes** | `15` |
-| `REFRESH_TOKEN_EXPIRES_IN` | Refresh token lifetime in **days** | `7` |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173` |
-| `MAX_LOGIN_ATTEMPTS` | Failed attempts before lockout | `5` |
-| `LOCK_DURATION_MINUTES` | Lockout duration in minutes | `15` |
-| `BOOTSTRAP_ADMIN_ID` | Employee ID for first admin | `OIL-AD-0001` |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Password for first admin (clear after use) | `StrongPass@123` |
-| `BOOTSTRAP_ADMIN_NAME` | Full name for first admin | `System Administrator` |
-
----
-
-## First-Time Admin Setup
-
-1. Fill in `BOOTSTRAP_ADMIN_*` variables in `.env`
-2. Run: `python scripts/bootstrap_admin.py`
-3. Log in at http://localhost:5173 using:
-   - **Role tab:** System Administrator
-   - **Employee ID:** `OIL-AD-0001` *(or your chosen ID)*
-   - **Password:** *(your bootstrap password)*
-4. ⚠️ Delete or blank out `BOOTSTRAP_ADMIN_PASSWORD` from `.env` after first login
-
----
-
-## Default Login Credentials
-
-> These are the credentials created by the bootstrap script using your `.env` values.
-
-| Role | Employee ID | Tab to Select |
-|---|---|---|
-| System Administrator | `OIL-AD-0001` | System Administrator |
-| Field Operator | Created via Admin panel | Field Operator |
-
-> **Note:** The login page enforces role matching — admin credentials won't work under the "Field Operator" tab and vice versa.
-
----
-
-## Available Scripts
-
-### Frontend
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start development server at `http://localhost:5173` |
-| `npm run build` | Build production bundle to `dist/` |
-| `npm run preview` | Preview the production build locally |
-
-### Backend
-
-| Command | Description |
-|---|---|
-| `python app/server.py` | Start FastAPI dev server at `http://localhost:8000` |
-| `alembic upgrade head` | Apply all pending DB migrations |
-| `alembic revision --autogenerate -m "desc"` | Generate a new migration |
-| `pytest` | Run the full test suite |
-| `pytest --cov=app` | Run tests with coverage report |
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m "feat: add your feature"`
-4. Push to the branch: `git push origin feature/your-feature`
-5. Open a Pull Request against `master`
-
----
-
-<div align="center">
-  <strong>POLARIS</strong> · Oil India Limited · Baghewala Field Operations<br/>
-  Heavy Oil Digital Twin & CSS+SRP Joint Optimization Platform<br/>
-  <em>Jaisalmer District, Rajasthan — Bikaner-Nagaur Basin</em>
-</div>
+Execute unit and regression tests:
+```powershell
+cd backend
+.\.venv\Scripts\pytest tests/ -v
+```

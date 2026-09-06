@@ -372,6 +372,11 @@ export const wellsApi = {
       `/wells/${wellId}/srp?days=${days}`
     );
   },
+  getSrp: async (wellId: string, days = 30) => {
+    return request<{ success: boolean; data: BackendSRPReading[]; total: number }>(
+      `/wells/${wellId}/srp?days=${days}`
+    );
+  },
 
   getTwinState: async (wellId: string) => {
     return request<{ success: boolean; data: any }>(`/wells/${wellId}/twin-state`);
@@ -403,6 +408,12 @@ export const wellsApi = {
   },
 
   getLatestDynamometerCard: async (wellId: string) => {
+    return request<{ success: boolean; data: BackendDynamometerCard }>(
+      `/wells/${wellId}/dynamometer-cards/latest`
+    );
+  },
+
+  getDynamometerCardLatest: async (wellId: string) => {
     return request<{ success: boolean; data: BackendDynamometerCard }>(
       `/wells/${wellId}/dynamometer-cards/latest`
     );
@@ -1049,5 +1060,51 @@ export const mlApi = {
   /** Retrieve full multi-model audit and setpoints for a single well */
   getWellInsights: (wellId: string) =>
     request<WellInsightsResult>(`/ml/well/${wellId}/insights`),
+};
+
+export interface ReplayState {
+  isPlaying: boolean;
+  speed: number;
+  activeWellId: string;
+  currentIndex: number;
+  totalFrames: number;
+  simulatedLiveLabel: string;
+  prototypeDisclaimer: string;
+  decisionSupportNotice: string;
+  currentReading: {
+    temperatureC: number;
+    wellheadTempC: number;
+    pressureBar: number;
+    flowRateBpd: number;
+    viscosityCP: number;
+    fluidMobility: number;
+    spm: number;
+    spmCrit: number;
+    spmSafe: number;
+    rodFloatingRisk: number;
+    rodFloatingStatus: string;
+    vibrationMmS: number;
+    motorPowerKW: number;
+    timestamp: string;
+  };
+}
+
+export const replayApi = {
+  getStatus: () => request<{ success: boolean; data: ReplayState }>('/simulation/status'),
+  start: (speed?: number) =>
+    request<{ success: boolean; data: ReplayState }>(`/simulation/start${speed ? `?speed=${speed}` : ''}`, { method: 'POST' }),
+  pause: () => request<{ success: boolean; data: ReplayState }>('/simulation/pause', { method: 'POST' }),
+  reset: () => request<{ success: boolean; data: ReplayState }>('/simulation/reset', { method: 'POST' }),
+  step: (steps: number = 1) => request<{ success: boolean; data: ReplayState }>(`/simulation/step?steps=${steps}`, { method: 'POST' }),
+  setSpeed: (speed: number) =>
+    request<{ success: boolean; data: ReplayState }>('/simulation/speed', {
+      method: 'POST',
+      body: JSON.stringify({ speed }),
+    }),
+  selectWell: (well_id: string) =>
+    request<{ success: boolean; data: ReplayState }>('/simulation/select-well', {
+      method: 'POST',
+      body: JSON.stringify({ well_id }),
+    }),
 };
 

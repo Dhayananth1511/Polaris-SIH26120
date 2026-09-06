@@ -20,20 +20,20 @@ interface NavItem {
 }
 
 const ROLE_NAV_ITEMS: Record<UserRole, NavItem[]> = {
-  // ── 1. OPERATOR ──────────────────────────────────────────────────────────
+  // ── 1. OPERATOR (12 Canonical SIH26120 Pages) ─────────────────────────
   operator: [
-    { label: 'Overview', path: '/app/command-center', icon: <LayoutDashboard className="w-6 h-6" />, roles: ['operator'], section: 'COMMAND CENTER' },
-    { label: 'Field Status', path: '/app/field-status', icon: <Map className="w-6 h-6" />, roles: ['operator'], section: 'COMMAND CENTER' },
-    { label: 'CSS Operations', path: '/app/css-operations', icon: <Zap className="w-6 h-6" />, roles: ['operator'], section: 'OPERATIONS' },
-    { label: 'SRP Diagnostics', path: '/app/srp-diagnostics', icon: <Sliders className="w-6 h-6" />, roles: ['operator'], section: 'OPERATIONS' },
-    { label: 'Well Digital Twin', path: '/app/digital-twin', icon: <Layers className="w-6 h-6" />, roles: ['operator'], section: 'DIGITAL TWIN' },
-    { label: 'Simulation Lab', path: '/app/simulation-lab', icon: <Cpu className="w-6 h-6" />, roles: ['operator'], section: 'DIGITAL TWIN' },
-    { label: 'Well Intelligence', path: '/app/well-intelligence', icon: <Activity className="w-6 h-6" />, roles: ['operator'], section: 'INTELLIGENCE' },
-    { label: 'Smart Optimization', path: '/app/smart-optimization', icon: <GitBranch className="w-6 h-6" />, roles: ['operator'], section: 'OPTIMIZATION' },
-    { label: 'AI Recommendations', path: '/app/recommendations', icon: <Brain className="w-6 h-6" />, roles: ['operator'], badge: '2', section: 'OPTIMIZATION' },
-    { label: 'Pending Approvals', path: '/app/approvals', icon: <CheckSquare className="w-6 h-6" />, roles: ['operator'], badge: '2', section: 'GOVERNANCE' },
-    { label: 'Alerts', path: '/app/alerts', icon: <AlertTriangle className="w-6 h-6" />, roles: ['operator'], badge: '4', section: 'GOVERNANCE' },
-    { label: 'Reports', path: '/app/reports', icon: <FileText className="w-6 h-6" />, roles: ['operator'], section: 'GOVERNANCE' },
+    { label: 'Overview', path: '/app/overview', icon: <LayoutDashboard className="w-5.5 h-5.5" />, roles: ['operator'], section: 'DIGITAL TWIN PLATFORM' },
+    { label: 'Digital Twin', path: '/app/digital-twin', icon: <Layers className="w-5.5 h-5.5" />, roles: ['operator'], section: 'DIGITAL TWIN PLATFORM' },
+    { label: 'Reservoir', path: '/app/reservoir', icon: <Activity className="w-5.5 h-5.5" />, roles: ['operator'], section: 'DIGITAL TWIN PLATFORM' },
+    { label: 'CSS Optimization', path: '/app/css-optimizer', icon: <Zap className="w-5.5 h-5.5" />, roles: ['operator'], section: 'OPTIMIZATION & KINEMATICS' },
+    { label: 'SRP Diagnostics', path: '/app/srp-diagnostics', icon: <Sliders className="w-5.5 h-5.5" />, roles: ['operator'], section: 'OPTIMIZATION & KINEMATICS' },
+    { label: 'SRP Optimization', path: '/app/srp-optimizer', icon: <Cpu className="w-5.5 h-5.5" />, roles: ['operator'], section: 'OPTIMIZATION & KINEMATICS' },
+    { label: 'Joint Optimization', path: '/app/joint-optimizer', icon: <GitBranch className="w-5.5 h-5.5" />, roles: ['operator'], section: 'OPTIMIZATION & KINEMATICS' },
+    { label: 'What-If Simulator', path: '/app/what-if', icon: <Cpu className="w-5.5 h-5.5" />, roles: ['operator'], section: 'SIMULATION & INTELLIGENCE' },
+    { label: 'Alerts', path: '/app/alerts', icon: <AlertTriangle className="w-5.5 h-5.5" />, roles: ['operator'], badge: '4', section: 'SIMULATION & INTELLIGENCE' },
+    { label: 'Historical', path: '/app/historical-analysis', icon: <FileText className="w-5.5 h-5.5" />, roles: ['operator'], section: 'GOVERNANCE & AUDIT' },
+    { label: 'Recommendations', path: '/app/recommendations', icon: <Brain className="w-5.5 h-5.5" />, roles: ['operator'], badge: '2', section: 'GOVERNANCE & AUDIT' },
+    { label: 'System Status', path: '/app/system-status', icon: <Database className="w-5.5 h-5.5" />, roles: ['operator'], section: 'GOVERNANCE & AUDIT' },
   ],
 
   // ── 2. SYSTEM ADMINISTRATOR ──────────────────────────────────────────────
