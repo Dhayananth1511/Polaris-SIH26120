@@ -41,12 +41,7 @@ export const CommandCenterPage: React.FC = () => {
       {/* ── Page Header ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#E2E8F0]">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A] animate-pulse" />
-            <span className="text-[12px] font-black tracking-wider text-[#D32F2F] uppercase">Oil India Limited · Team POLARIS</span>
-            <span className="text-[#CBD5E1]">|</span>
-            <span className="text-[11px] font-bold text-[#64748B]">Digital Twin AI Platform</span>
-          </div>
+
           <h1 className="text-2xl md:text-3xl font-black text-[#0F172A] tracking-tight">
             Baghewala Field — Operational Command Center
           </h1>
@@ -165,7 +160,7 @@ export const CommandCenterPage: React.FC = () => {
         </div>
 
         {/* Latest AI Recommendation */}
-        <div className="bg-white p-4.5 rounded border border-[#E2E8F0] shadow-sm flex flex-col justify-between border-l-4 border-l-[#D32F2F]">
+        <div className="bg-white p-4.5 rounded border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9]">
               <div className="flex items-center gap-2">
@@ -208,7 +203,7 @@ export const CommandCenterPage: React.FC = () => {
         
         {/* Left Column: Interactive Field Map */}
         <div className="h-full min-h-[520px]">
-          <FieldMapBaghewala onSelectWell={(w) => navigate(`/app/digital-twin?well=${w.id}`)} />
+          <FieldMapBaghewala />
         </div>
 
         {/* Right Column: Production Trend & Recent Alerts */}
@@ -368,7 +363,7 @@ export const CommandCenterPage: React.FC = () => {
         {/* Grid Controls Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#F1F5F9]">
           <div className="flex items-center gap-3">
-            <div className="w-1.5 h-5 bg-[#D32F2F] rounded-full" />
+            <div className="w-1 h-5 bg-[#94A3B8] rounded-full" />
             <div>
               <h3 className="text-[18px] font-bold text-[#0F172A]">Baghewala Well Status Matrix</h3>
               <p className="text-[13px] text-[#64748B]">Showing {filteredWells.length} of {WELLS.length} monitored wells</p>
@@ -425,16 +420,8 @@ export const CommandCenterPage: React.FC = () => {
               <div
                 key={well.id}
                 onClick={() => navigate(`/app/digital-twin?well=${well.id}`)}
-                className="p-6 rounded-xl border border-[#CBD5E1] hover:border-[#D32F2F] bg-white hover:shadow-xl transition-all duration-200 cursor-pointer group flex flex-col justify-between relative overflow-hidden"
+                className="p-6 rounded-xl border border-[#E8EDF2] hover:border-[#C8D0DC] bg-white hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between relative overflow-hidden"
               >
-                {/* Top Accent Line */}
-                <div 
-                  className={`absolute top-0 left-0 right-0 h-1.5 transition-all group-hover:h-2 ${
-                    well.status === 'Producing' ? 'bg-[#16A34A]' :
-                    well.status === 'Attention' ? 'bg-[#D97706]' :
-                    well.status === 'Critical' ? 'bg-[#DC2626]' : 'bg-[#64748B]'
-                  }`} 
-                />
 
                 <div>
                   {/* Card Header */}
@@ -446,7 +433,7 @@ export const CommandCenterPage: React.FC = () => {
                           well.status === 'Attention' ? 'bg-[#D97706]' :
                           well.status === 'Critical' ? 'bg-[#DC2626]' : 'bg-[#64748B]'
                         }`} />
-                        <span className="font-black text-[#0F172A] text-xl md:text-2xl tracking-tight group-hover:text-[#D32F2F] transition-colors">
+                        <span className="font-black text-[#0F172A] text-xl md:text-2xl tracking-tight">
                           {well.name}
                         </span>
                       </div>

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { ALERTS } from '../../data/mockData';
 
 export const Header: React.FC = () => {
-  const { user, logout, switchRole } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { toggleMobileMenu } = useUIStore();
   const navigate = useNavigate();
   const [showUser, setShowUser] = useState(false);
@@ -17,10 +17,10 @@ export const Header: React.FC = () => {
     admin:    'System Administrator',
   };
 
-  const handleRoleSwitch = (r: any) => {
-    switchRole(r);
+  const handleSignOut = async () => {
+    await logout();
     setShowUser(false);
-    navigate(r === 'admin' ? '/app/admin/users' : '/app/command-center');
+    navigate('/login');
   };
 
   const defaultHome = user?.role === 'admin' ? '/app/admin/users' : '/app/command-center';
@@ -54,7 +54,6 @@ export const Header: React.FC = () => {
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-[16px] sm:text-[19px] font-black text-[#0F172A] tracking-wider leading-tight">POLARIS</span>
-              <span className="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black bg-[#FFEBEE] text-[#D32F2F] whitespace-nowrap">AI CORE</span>
             </div>
             <div className="text-[11px] sm:text-[12.5px] text-[#64748B] font-semibold leading-tight mt-0.5 hidden xl:block whitespace-nowrap">
               Baghewala Field · Digital Twin &amp; Optimization Platform
@@ -130,34 +129,14 @@ export const Header: React.FC = () => {
               <div className="px-4 py-3 border-b border-[#E2E8F0] bg-[#F8FAFC]">
                 <p className="text-[14px] font-bold text-[#0F172A]">{user?.name}</p>
                 <p className="text-[12px] text-[#64748B] font-mono mt-0.5">{user?.employeeId}</p>
-                <span className="inline-block mt-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold bg-[#FFEBEE] text-[#D32F2F]">
-                  {roleLabel[user?.role ?? '']}
+                <p className="text-[12px] text-[#475569] mt-1">{user?.designation || user?.department}</p>
+                <span className="inline-block mt-2 px-2.5 py-0.5 rounded text-[11px] font-bold bg-[#FFEBEE] text-[#D32F2F]">
+                  {roleLabel[user?.role ?? ''] || user?.role}
                 </span>
               </div>
 
-              <div className="px-3 py-2 border-b border-[#E2E8F0] bg-[#FAFAFA]">
-                <p className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Switch Operational Role</p>
-                <div className="space-y-1">
-                  {[
-                    { r: 'operator', label: 'Field Operator' },
-                    { r: 'admin', label: 'System Administrator' },
-                  ].map(({ r, label }) => (
-                    <button
-                      key={r}
-                      onClick={() => handleRoleSwitch(r)}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-[12.5px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
-                        user?.role === r ? 'bg-[#FFEBEE] text-[#D32F2F] font-bold' : 'text-[#334155] hover:bg-[#F1F5F9]'
-                      }`}
-                    >
-                      <span>{label}</span>
-                      {user?.role === r && <span className="w-2 h-2 rounded-full bg-[#D32F2F]" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <button
-                onClick={() => { logout(); navigate('/login'); setShowUser(false); }}
+                onClick={handleSignOut}
                 className="w-full text-left px-4 py-2.5 text-[13px] text-[#D32F2F] hover:bg-[#FEF2F2] transition-colors font-bold cursor-pointer"
               >
                 Sign Out

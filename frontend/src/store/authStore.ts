@@ -1,46 +1,39 @@
 import { create } from 'zustand';
 import type { User, UserRole } from '../types';
-
-interface DemoCredential {
-  employeeId: string;
-  password: string;
-  role: UserRole;
-  name: string;
-  designation: string;
-}
-
-const DEMO_CREDENTIALS: DemoCredential[] = [
-  { employeeId: 'OIL-OP-4102', password: 'demo123', role: 'operator', name: 'Amitav Patel', designation: 'Field Operations Specialist' },
-  { employeeId: 'OIL-ADM-001', password: 'demo123', role: 'admin',    name: 'Priya Menon',  designation: 'System Administrator' },
-];
+import { authApi, setAuthToken, removeAuthToken, getAuthToken } from '../services/api';
 
 interface AuthState {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   loginError: string;
-  login: (employeeId: string, password: string, role: UserRole) => boolean;
-  register: (name: string, employeeId: string, password: string, role: UserRole) => boolean;
-  switchRole: (role: UserRole) => void;
-  logout: () => void;
+  isLoading: boolean;
+  login: (employeeId: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   clearError: () => void;
+  checkAuth: () => Promise<void>;
 }
 
-const defaultUser: User = {
-  id: 'OIL-OP-4102',
-  name: 'Amitav Patel',
-  employeeId: 'OIL-OP-4102',
-  role: 'operator',
-  designation: 'Field Operations Specialist',
-  department: 'Field Operations',
-  lastLogin: '04 Nov 2024, 14:32 IST',
-};
+const savedUserRaw = localStorage.getItem('polaris_user');
+let initialUser: User | null = null;
+try {
+  if (savedUserRaw) {
+    initialUser = JSON.parse(savedUserRaw);
+  }
+} catch {
+  initialUser = null;
+}
+
+const initialToken = getAuthToken();
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: defaultUser,
-  isAuthenticated: true,
+  user: initialUser,
+  token: initialToken,
+  isAuthenticated: !!initialToken && !!initialUser,
   loginError: '',
+  isLoading: false,
 
-  login: (employeeId, password, role) => {
+  login: async (employeeId, password) => {
     const trimmedId = employeeId.trim();
     if (!trimmedId) {
       set({ loginError: 'Please enter your registered Employee ID.' });
@@ -51,62 +44,78 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     }
 
-    const user: User = {
-      id: trimmedId.toUpperCase(),
-      name: role === 'admin' ? 'System Administrator' : 'Field Operator',
-      employeeId: trimmedId.toUpperCase(),
-      role: role,
-      designation: role === 'admin' ? 'System Administrator' : 'Lead Field Operations Specialist',
-      department: role === 'admin' ? 'Information Systems' : 'Field Operations',
-      lastLogin: new Date().toLocaleString('en-IN'),
-    };
-    set({ user, isAuthenticated: true, loginError: '' });
-    return true;
-  },
+    set({ isLoading: true, loginError: '' });
+    try {
+      const res = await authApi.login(trimmedId, password);
+      const backendUser = res.user;
+      const roleLower: UserRole = backendUser.role.toLowerCase() === 'admin' ? 'admin' : 'operator';
 
-  register: (name, employeeId, password, role) => {
-    const trimmedName = name.trim();
-    const trimmedId = employeeId.trim();
-    if (!trimmedName) {
-      set({ loginError: 'Please enter your full name.' });
+      const user: User = {
+        id: backendUser.id,
+        name: backendUser.full_name,
+        employeeId: backendUser.employee_id,
+        role: roleLower,
+        designation: roleLower === 'admin' ? 'System Administrator' : 'Lead Field Operations Specialist',
+        department: roleLower === 'admin' ? 'System Administration' : 'Field Operations',
+        lastLogin: new Date().toLocaleString('en-IN'),
+      };
+
+      setAuthToken(res.data.access_token);
+      localStorage.setItem('polaris_user', JSON.stringify(user));
+
+      set({
+        user,
+        token: res.data.access_token,
+        isAuthenticated: true,
+        loginError: '',
+        isLoading: false,
+      });
+      return true;
+    } catch (err: any) {
+      set({
+        loginError: err.message || 'Authentication failed. Please verify your credentials.',
+        isLoading: false,
+      });
       return false;
     }
-    if (!trimmedId) {
-      set({ loginError: 'Please enter your employee ID.' });
-      return false;
-    }
-    if (!password || password.length < 4) {
-      set({ loginError: 'Password must be at least 4 characters long.' });
-      return false;
-    }
-
-    const user: User = {
-      id: trimmedId.toUpperCase(),
-      name: trimmedName,
-      employeeId: trimmedId.toUpperCase(),
-      role: role,
-      designation: role === 'admin' ? 'System Administrator' : 'Lead Field Operations Specialist',
-      department: role === 'admin' ? 'Information Systems' : 'Field Operations',
-      lastLogin: new Date().toLocaleString('en-IN'),
-    };
-    set({ user, isAuthenticated: true, loginError: '' });
-    return true;
   },
 
-  switchRole: (role) => {
-    const cred = DEMO_CREDENTIALS.find((c) => c.role === role) || DEMO_CREDENTIALS[0];
-    const user: User = {
-      id: cred.employeeId,
-      name: cred.name,
-      employeeId: cred.employeeId,
-      role: cred.role,
-      designation: cred.designation,
-      department: 'Production Operations',
-      lastLogin: new Date().toLocaleString('en-IN'),
-    };
-    set({ user, isAuthenticated: true, loginError: '' });
+  logout: async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // ignore
+    }
+    removeAuthToken();
+    set({ user: null, token: null, isAuthenticated: false, loginError: '', isLoading: false });
   },
 
-  logout: () => set({ user: null, isAuthenticated: false, loginError: '' }),
+  checkAuth: async () => {
+    const token = getAuthToken();
+    if (!token) {
+      set({ user: null, token: null, isAuthenticated: false });
+      return;
+    }
+    try {
+      const res = await authApi.me();
+      const backendUser = res.user;
+      const roleLower: UserRole = backendUser.role.toLowerCase() === 'admin' ? 'admin' : 'operator';
+      const user: User = {
+        id: backendUser.id,
+        name: backendUser.full_name,
+        employeeId: backendUser.employee_id,
+        role: roleLower,
+        designation: roleLower === 'admin' ? 'System Administrator' : 'Lead Field Operations Specialist',
+        department: roleLower === 'admin' ? 'System Administration' : 'Field Operations',
+        lastLogin: new Date().toLocaleString('en-IN'),
+      };
+      localStorage.setItem('polaris_user', JSON.stringify(user));
+      set({ user, isAuthenticated: true });
+    } catch {
+      removeAuthToken();
+      set({ user: null, token: null, isAuthenticated: false });
+    }
+  },
+
   clearError: () => set({ loginError: '' }),
 }));

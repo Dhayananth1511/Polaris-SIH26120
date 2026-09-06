@@ -23,7 +23,7 @@ export interface FieldWell {
 }
 
 // ── Real Geographical Coordinates of Oil India Limited Baghewala PML Block ───
-// Center: 27° 44' 35" N, 71° 57' 42" E (27.7431° N, 71.9617° E)
+// Center: 27°46'16" N, 71°38'37" E (27.7711° N, 71.6436° E)
 // PML Block: 206.8 sq km in Bikaner-Nagaur Basin, Jaisalmer District, Rajasthan
 export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
   // ── Critical Wells (Red Pins) ───────────────────────────────────────
@@ -41,8 +41,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 852, 
     apiGravity: 17.5, 
     cssCycle: 'Cycle 04 (Active)', 
-    lat: 27.7495, 
-    lng: 71.9688 
+    lat: 27.7761, 
+    lng: 71.6534 
   },
   { 
     id: 'BGW-007', 
@@ -58,8 +58,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 864, 
     apiGravity: 16.8, 
     cssCycle: 'Cycle 03 (Decline)', 
-    lat: 27.7378, 
-    lng: 71.9485 
+    lat: 27.7644, 
+    lng: 71.6331 
   },
 
   // ── Attention Wells (Yellow / Amber Pins) ───────────────────────────
@@ -77,8 +77,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 846, 
     apiGravity: 17.8, 
     cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7562, 
-    lng: 71.9642 
+    lat: 27.7828, 
+    lng: 71.6488 
   },
   { 
     id: 'BGW-003', 
@@ -94,8 +94,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 850, 
     apiGravity: 17.4, 
     cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7465, 
-    lng: 71.9565 
+    lat: 27.7731, 
+    lng: 71.6411 
   },
   { 
     id: 'BGW-010', 
@@ -111,8 +111,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 870, 
     apiGravity: 16.9, 
     cssCycle: 'Cycle 03 (Soaking)', 
-    lat: 27.7335, 
-    lng: 71.9420 
+    lat: 27.7601, 
+    lng: 71.6266 
   },
 
   // ── Normal / Operating Heavy Oil Wells (Green Pins) ─────────────────
@@ -130,8 +130,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 840, 
     apiGravity: 18.2, 
     cssCycle: 'Cycle 05 (Stable)', 
-    lat: 27.7395, 
-    lng: 71.9510 
+    lat: 27.7661, 
+    lng: 71.6356 
   },
   { 
     id: 'BGW-002', 
@@ -147,8 +147,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 848, 
     apiGravity: 17.6, 
     cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7510, 
-    lng: 71.9540 
+    lat: 27.7776, 
+    lng: 71.6386 
   },
   { 
     id: 'BGW-004', 
@@ -164,8 +164,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 855, 
     apiGravity: 18.0, 
     cssCycle: 'Cycle 03 (Stable)', 
-    lat: 27.7445, 
-    lng: 71.9715 
+    lat: 27.7711, 
+    lng: 71.6561 
   },
   { 
     id: 'BGW-005', 
@@ -181,8 +181,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 860, 
     apiGravity: 17.1, 
     cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7340, 
-    lng: 71.9580 
+    lat: 27.7606, 
+    lng: 71.6426 
   },
   { 
     id: 'BGW-006', 
@@ -198,8 +198,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 852, 
     apiGravity: 17.7, 
     cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7580, 
-    lng: 71.9570 
+    lat: 27.7846, 
+    lng: 71.6416 
   },
   { 
     id: 'BGW-008', 
@@ -215,8 +215,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 858, 
     apiGravity: 18.1, 
     cssCycle: 'Cycle 03 (Stable)', 
-    lat: 27.7410, 
-    lng: 71.9780 
+    lat: 27.7676, 
+    lng: 71.6626 
   },
   { 
     id: 'BGW-009', 
@@ -232,8 +232,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 844, 
     apiGravity: 17.3, 
     cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7420, 
-    lng: 71.9535 
+    lat: 27.7686, 
+    lng: 71.6381 
   },
   { 
     id: 'BGW-011', 
@@ -249,8 +249,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 856, 
     apiGravity: 17.9, 
     cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7315, 
-    lng: 71.9690 
+    lat: 27.7581, 
+    lng: 71.6536 
   },
   { 
     id: 'BGW-012', 
@@ -266,8 +266,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 865, 
     apiGravity: 17.0, 
     cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7535, 
-    lng: 71.9440 
+    lat: 27.7801, 
+    lng: 71.6286 
   },
   { 
     id: 'BGW-013', 
@@ -283,8 +283,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 842, 
     apiGravity: 18.4, 
     cssCycle: 'Cycle 04 (Peak)', 
-    lat: 27.7485, 
-    lng: 71.9750 
+    lat: 27.7751, 
+    lng: 71.6596 
   },
   { 
     id: 'BGW-015', 
@@ -300,8 +300,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 854, 
     apiGravity: 17.5, 
     cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7380, 
-    lng: 71.9635 
+    lat: 27.7646, 
+    lng: 71.6481 
   },
   { 
     id: 'BGW-016', 
@@ -317,8 +317,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 845, 
     apiGravity: 18.0, 
     cssCycle: 'Cycle 03 (Stable)', 
-    lat: 27.7570, 
-    lng: 71.9495 
+    lat: 27.7836, 
+    lng: 71.6341 
   },
   { 
     id: 'BGW-017', 
@@ -334,8 +334,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 850, 
     apiGravity: 17.7, 
     cssCycle: 'Cycle 04 (Production)', 
-    lat: 27.7455, 
-    lng: 71.9510 
+    lat: 27.7721, 
+    lng: 71.6356 
   },
   { 
     id: 'BGW-018', 
@@ -351,8 +351,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 848, 
     apiGravity: 17.8, 
     cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7300, 
-    lng: 71.9530 
+    lat: 27.7566, 
+    lng: 71.6376 
   },
   { 
     id: 'BGW-019', 
@@ -368,8 +368,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 857, 
     apiGravity: 17.4, 
     cssCycle: 'Cycle 02 (Production)', 
-    lat: 27.7540, 
-    lng: 71.9710 
+    lat: 27.7806, 
+    lng: 71.6556 
   },
   { 
     id: 'BGW-020', 
@@ -385,8 +385,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 840, 
     apiGravity: 18.3, 
     cssCycle: 'Cycle 04 (Peak)', 
-    lat: 27.7470, 
-    lng: 71.9380 
+    lat: 27.7736, 
+    lng: 71.6226 
   },
   { 
     id: 'BGW-022', 
@@ -402,8 +402,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 849, 
     apiGravity: 17.7, 
     cssCycle: 'Cycle 03 (Production)', 
-    lat: 27.7320, 
-    lng: 71.9630 
+    lat: 27.7586, 
+    lng: 71.6476 
   },
   { 
     id: 'BGW-023', 
@@ -419,8 +419,8 @@ export const BAGHEWALA_MAP_WELLS: FieldWell[] = [
     depthMeters: 851, 
     apiGravity: 18.0, 
     cssCycle: 'Cycle 04 (Stable)', 
-    lat: 27.7525, 
-    lng: 71.9660 
+    lat: 27.7791, 
+    lng: 71.6506 
   },
 ];
 
@@ -442,65 +442,60 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
   const [activeLayer, setActiveLayer] = useState<'google' | 'esri' | 'terrain'>('google');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Normal' | 'Attention' | 'Critical'>('ALL');
 
-  // SVG Teardrop Pin Marker HTML (Matching Screenshot 1)
+  // Clean circle marker — professional GIS style
   const createPinIcon = (well: FieldWell, isSelected: boolean) => {
-    let pinColor = '#16A34A'; // green
-    let iconSvg = `<circle cx="12" cy="12" r="4" fill="white" />`;
-    let pulseHtml = '';
+    const colors: Record<string, { fill: string; ring: string; text: string }> = {
+      Critical:  { fill: '#EF4444', ring: 'rgba(239,68,68,0.35)',  text: '#EF4444' },
+      Attention: { fill: '#F59E0B', ring: 'rgba(245,158,11,0.30)', text: '#B45309' },
+      Normal:    { fill: '#22C55E', ring: 'rgba(34,197,94,0.25)',  text: '#15803D' },
+    };
+    const c = colors[well.status] ?? colors.Normal;
 
-    if (well.status === 'Critical') {
-      pinColor = '#DC2626'; // red
-      iconSvg = `<path d="M12 7v6m0 4v.01" stroke="white" stroke-width="2.2" stroke-linecap="round" />`;
-      pulseHtml = `<div class="absolute -inset-2 rounded-full border-2 border-red-500 animate-ping opacity-75"></div>`;
-    } else if (well.status === 'Attention') {
-      pinColor = '#EAB308'; // amber/yellow
-      iconSvg = `<circle cx="12" cy="12" r="3.5" fill="white" />`;
-    }
+    const size   = isSelected ? 14 : 10;
+    const total  = size + 8;          // ring padding
+    const pulse  = well.status === 'Critical'
+      ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid ${c.fill};opacity:0.5;animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;"></div>`
+      : '';
+
+    const label = well.id; // e.g. "BGW-014"
 
     const html = `
-      <div class="relative flex flex-col items-center cursor-pointer group" style="transform: translate(-50%, -100%);">
-        ${pulseHtml}
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+        ${pulse}
         <div style="
-          width: ${isSelected ? '34px' : '28px'}; 
-          height: ${isSelected ? '44px' : '36px'}; 
-          background-color: ${pinColor};
-          border: ${isSelected ? '3px solid #FFFFFF' : '2px solid #FFFFFF'};
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease-out;
+          width:${total}px;height:${total}px;
+          border-radius:50%;
+          background:${c.ring};
+          display:flex;align-items:center;justify-content:center;
         ">
-          <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; transform: rotate(45deg);">
-            ${iconSvg}
-          </svg>
+          <div style="
+            width:${size}px;height:${size}px;
+            border-radius:50%;
+            background:${c.fill};
+            border:2px solid #fff;
+            box-shadow:0 1px 4px rgba(0,0,0,0.45);
+          "></div>
         </div>
         <div style="
-          margin-top: 2px;
-          background: rgba(15, 23, 42, 0.9);
-          color: #FFFFFF;
-          font-family: 'Inter', system-ui, sans-serif;
-          font-size: 10px;
-          font-weight: 700;
-          padding: 1px 6px;
-          border-radius: 3px;
-          white-space: nowrap;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-          pointer-events: none;
-          letter-spacing: 0.5px;
-        ">
-          ${well.name.split(' ')[0]}
-        </div>
-      </div>
-    `;
+          margin-top:1px;
+          font-family:'Inter',system-ui,sans-serif;
+          font-size:9px;font-weight:700;
+          color:#fff;
+          background:rgba(15,23,42,0.72);
+          padding:1px 4px;
+          border-radius:3px;
+          white-space:nowrap;
+          letter-spacing:0.3px;
+          pointer-events:none;
+          backdrop-filter:blur(2px);
+        ">${label}</div>
+      </div>`;
 
     return L.divIcon({
-      className: 'custom-map-pin',
+      className: '',
       html,
-      iconSize: [32, 44],
-      iconAnchor: [16, 40],
+      iconSize:   [total, total + 16],
+      iconAnchor: [total / 2, total / 2],
     });
   };
 
@@ -508,8 +503,8 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Oil India Limited Baghewala Petroleum Mining Lease Center
-    const baghewalaCenter: [number, number] = [27.7445, 71.9590];
+    // Oil India Limited Baghewala Petroleum Mining Lease Center (Jaisalmer District, Rajasthan)
+    const baghewalaCenter: [number, number] = [27.7711, 71.6436];
 
     const map = L.map(mapContainerRef.current, {
       center: baghewalaCenter,
@@ -532,45 +527,30 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
     tileLayerRef.current = googleHybridLayer;
     mapRef.current = map;
 
-    // Pipeline Gathering Network connecting each wellhead to Baghewala GGS
-    const ggsLocation: [number, number] = [27.7445, 71.9590];
+    // Pipeline gathering lines — thin, uniform, subtle
+    const ggsLocation: [number, number] = [27.7711, 71.6436];
     BAGHEWALA_MAP_WELLS.forEach((well) => {
-      const isCritical = well.status === 'Critical';
-      const isAttention = well.status === 'Attention';
-      const lineColor = isCritical ? '#EF4444' : isAttention ? '#F59E0B' : '#0284C7';
-
       L.polyline([ggsLocation, [well.lat, well.lng]], {
-        color: lineColor,
-        weight: isCritical ? 2.5 : 1.5,
-        opacity: 0.7,
-        dashArray: isCritical ? '4, 4' : undefined,
+        color: '#64748B',
+        weight: 0.8,
+        opacity: 0.30,
+        dashArray: '3, 5',
       }).addTo(map);
     });
 
-    // Central Gathering Station (GGS) Operational Hub Marker
+    // GGS centre — minimal crosshair dot
     const ggsIcon = L.divIcon({
-      className: 'ggs-station-pin',
+      className: '',
       html: `
         <div style="
-          background: #0F172A;
-          color: #38BDF8;
-          border: 2px solid #38BDF8;
-          padding: 3px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 800;
-          box-shadow: 0 3px 8px rgba(0,0,0,0.6);
-          white-space: nowrap;
-          transform: translate(-50%, -50%);
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        ">
-          <span style="color: #F59E0B;">★</span> OIL GGS BAGHEWALA
-        </div>
-      `,
-      iconSize: [140, 26],
-      iconAnchor: [70, 13],
+          width:12px; height:12px;
+          border-radius:50%;
+          background:#F8FAFC;
+          border:2px solid #64748B;
+          box-shadow:0 0 0 3px rgba(100,116,139,0.20);
+        "></div>`,
+      iconSize:   [12, 12],
+      iconAnchor: [6, 6],
     });
     L.marker(ggsLocation, { icon: ggsIcon }).addTo(map);
 
@@ -667,19 +647,20 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px; padding: 4px; font-size: 10px; color: #475569; margin-bottom: 8px;">
             Cycle: <strong>${well.cssCycle}</strong> | Gravity: <strong>${well.apiGravity}° API</strong>
           </div>
-          <a href="/app/wells/${well.id}" style="
-            display: block;
-            text-align: center;
-            background: #D32F2F;
-            color: #FFFFFF;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-weight: 700;
-            font-size: 11px;
-            text-decoration: none;
+          <a href="/app/digital-twin?well=${well.id}" style="
+            display:block;
+            text-align:center;
+            background:#D32F2F;
+            color:#FFFFFF;
+            padding:5px 8px;
+            border-radius:4px;
+            font-weight:700;
+            font-size:11px;
+            text-decoration:none;
+            margin-top:4px;
           ">View Digital Twin →</a>
         </div>
-      `, { offset: [0, -32] });
+      `, { offset: [0, -10] });
 
       markersRef.current.push(marker);
     });
@@ -688,7 +669,7 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
   // Zoom helpers
   const handleZoomIn = () => mapRef.current?.zoomIn();
   const handleZoomOut = () => mapRef.current?.zoomOut();
-  const handleReset = () => mapRef.current?.flyTo([27.7445, 71.9590], 14, { duration: 0.8 });
+  const handleReset = () => mapRef.current?.flyTo([27.7711, 71.6436], 14, { duration: 0.8 });
 
   const normalCount = BAGHEWALA_MAP_WELLS.filter(w => w.status === 'Normal').length;
   const attentionCount = BAGHEWALA_MAP_WELLS.filter(w => w.status === 'Attention').length;
@@ -757,7 +738,7 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
             OIL INDIA LIMITED · BAGHEWALA PML
           </div>
           <div className="text-[10px] text-gray-300 mt-0.5">
-            27°44'35" N, 71°57'42" E · Bikaner-Nagaur Basin, Rajasthan
+            27°46'16" N, 71°38'37" E · Jaisalmer District, Rajasthan
           </div>
           <div className="text-[9px] text-[#38BDF8] mt-0.5 font-semibold">
             Jodhpur Sandstone (CSS + SRP Operations) · Elevation: 142 m
@@ -789,54 +770,7 @@ export const FieldMapBaghewala: React.FC<FieldMapProps> = ({ onSelectWell, selec
           </button>
         </div>
 
-        {/* Selected Well Floating Quick Card */}
-        {activeWell && (
-          <div className="absolute bottom-3 right-3 z-[1000] bg-white/95 backdrop-blur-md p-3.5 rounded-lg border border-[#CBD5E1] shadow-xl text-[12px] max-w-[230px]">
-            <div className="flex items-center justify-between gap-2 border-b border-[#E2E8F0] pb-1.5 mb-1.5">
-              <span className="font-black text-[#0F172A] text-[13px]">{activeWell.name}</span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                activeWell.status === 'Critical' ? 'bg-[#FEF2F2] text-[#DC2626]' :
-                activeWell.status === 'Attention' ? 'bg-[#FEFCE8] text-[#CA8A04]' :
-                'bg-[#F0FDF4] text-[#16A34A]'
-              }`}>
-                {activeWell.status}
-              </span>
-            </div>
-            
-            <div className="space-y-1 text-[#475569]">
-              <div className="flex justify-between">
-                <span>Net Oil Rate:</span>
-                <strong className="text-[#0F172A]">{activeWell.oilProduction} BOPD</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Steam-to-Oil (SOR):</span>
-                <strong className="text-[#0F172A]">{activeWell.sor}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Rod String Load:</span>
-                <strong className={activeWell.rodLoad > 6.0 ? 'text-[#DC2626]' : 'text-[#0F172A]'}>
-                  {activeWell.rodLoad} kN
-                </strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Formation Temp:</span>
-                <strong className="text-[#0F172A]">{activeWell.temperature} °C</strong>
-              </div>
-              <div className="flex justify-between text-[11px] text-[#64748B]">
-                <span>Depth / Gravity:</span>
-                <span>{activeWell.depthMeters}m · {activeWell.apiGravity}°</span>
-              </div>
-            </div>
 
-            <button
-              onClick={() => navigate(`/app/wells/${activeWell.id}`)}
-              className="mt-2.5 w-full py-1.5 bg-[#D32F2F] hover:bg-[#B71C1C] text-white rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-            >
-              <span>View Digital Twin</span>
-              <ExternalLink className="w-3 h-3" />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Status Legend (Screenshot 1 Exact Match) ─────────────── */}
