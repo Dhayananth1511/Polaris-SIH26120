@@ -13,7 +13,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.config.settings import settings
 from app.errors.handlers import register_handlers
 from app.middleware.rate_limit import limiter
-from app.routes import auth, admin
+from app.routes import auth, admin, wells, alerts, simulation, approvals
 from app.utils.logging import setup_logging
 
 logger = structlog.get_logger(__name__)
@@ -71,6 +71,10 @@ def create_app() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     app.include_router(auth.router, prefix="/api")
     app.include_router(admin.router, prefix="/api")
+    app.include_router(wells.router, prefix="/api")
+    app.include_router(alerts.router, prefix="/api")
+    app.include_router(simulation.router, prefix="/api")
+    app.include_router(approvals.router, prefix="/api")
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/api/health", tags=["Health"], include_in_schema=False)

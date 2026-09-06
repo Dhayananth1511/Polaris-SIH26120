@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Environment
+.env
+*.local
+
+# Datasets & Database raw data
+Dataset/
+dataset/
+datasets/
+database/
+**/Dataset/
+**/dataset/
+**/datasets/
+
+# Build artifacts
+dist/
+build/
+*.py[cod]
+__pycache__/
+
+# Logs & caches
+*.log
+.pytest_cache/
+.coverage
+htmlcov/

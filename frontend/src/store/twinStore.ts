@@ -1,7 +1,19 @@
 import { create } from 'zustand';
 import type { TwinState, SimulationParams, SimulationResult } from '../types';
-import { BGW014_TWIN_STATE } from '../data/mockData';
 import { simulationEngine } from '../services/simulationEngine';
+
+// Default initial state — overwritten by API fetch in DigitalTwinPage
+const INITIAL_TWIN_STATE: TwinState = {
+  wellId: 'BGW-001',
+  timestamp: new Date().toISOString(),
+  reservoir: { temperature: 60, pressure: 50, viscosity: 1800, steamPenetration: 40, oilSaturation: 0.34, depth: 1000 },
+  wellbore: { temperature: 55, pressure: 45, flowRate: 80, depth: 1000, casingDiameter: 177.8, tubingDiameter: 88.9 },
+  css: { steamVolume: 700, injectionPressure: 20, soakTime: 60, cycleNumber: 1, steamQuality: 72 },
+  srp: { spm: 5.0, strokeLength: 66, vfd: 36, rodLoad: 5.5, pumpEfficiency: 70, fluidLevel: 320 },
+  production: { oilRate: 90, waterCut: 35, sor: 4.5, grossRate: 140, energyConsumption: 85 },
+  health: { failureRisk: 0.18, rodCondition: 'Fair', pumpCondition: 'Good', overallHealth: 72 },
+};
+
 
 interface TwinStore {
   currentState: TwinState;
@@ -18,7 +30,7 @@ interface TwinStore {
 }
 
 export const useTwinStore = create<TwinStore>((set, get) => ({
-  currentState: BGW014_TWIN_STATE,
+  currentState: INITIAL_TWIN_STATE,
   simulatedState: null,
   simulationResult: null,
   isSimulating: false,
