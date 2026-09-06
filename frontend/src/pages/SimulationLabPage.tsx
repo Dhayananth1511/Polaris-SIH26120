@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Play, Check, ArrowRight, RotateCcw, Cpu, Layers, 
-  Settings, Zap, BarChart2, ShieldCheck, CheckCircle2, AlertTriangle
+  Settings, Zap, BarChart2, ShieldCheck, CheckCircle2, AlertTriangle, TrendingUp
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 import { 
   wellsApi, simulationApi, approvalsApi, 
   type BackendWell, type SimulationResultRow, type SimulationResponse 
@@ -30,6 +33,21 @@ export const SimulationLabPage: React.FC = () => {
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [simulationData, setSimulationData] = useState<SimulationResponse | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  const chartData = useMemo(() => {
+    if (!simulationData?.results) return [];
+    return simulationData.results.map(r => {
+      const curNum = parseFloat(String(r.current).replace(/[^0-9.-]/g, '')) || 0;
+      const scenNum = parseFloat(String(r.scenario).replace(/[^0-9.-]/g, '')) || 0;
+      return {
+        name: r.parameter.replace(/\s*\(.*?\)/, ''),
+        baseline: curNum,
+        simulated: scenNum,
+        change: r.change,
+        isPositive: r.isPositive,
+      };
+    });
+  }, [simulationData]);
 
   // Load wells list
   useEffect(() => {
@@ -343,12 +361,20 @@ export const SimulationLabPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Run Simulation Action Button */}
-          <div>
+          {/* Action Buttons: Run Simulation + Reset */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleSelectMode('current')}
+              className="px-4 py-3 bg-white border border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC] font-bold rounded-lg text-[13px] shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              title="Reset parameters to current field baseline"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Reset</span>
+            </button>
             <button
               onClick={handleRunSimulation}
               disabled={isSimulating}
-              className="w-full py-3 bg-[#005C53] hover:bg-[#004B44] text-white font-bold rounded-lg text-[14px] shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-1 py-3 bg-[#005C53] hover:bg-[#004B44] text-white font-bold rounded-lg text-[14px] shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Play className={`w-4 h-4 fill-white ${isSimulating ? 'animate-spin' : ''}`} />
               <span>{isSimulating ? 'Simulating Coupled Reservoir-Wellbore Kinematics...' : 'Run Simulation'}</span>
@@ -362,9 +388,14 @@ export const SimulationLabPage: React.FC = () => {
           
           {/* Simulation Result Table Card */}
           <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
-            <h4 className="text-[14px] font-bold text-[#0F172A] mb-4 pb-2 border-b border-[#F1F5F9]">
-              Simulation Result vs Current Baseline
-            </h4>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#F1F5F9]">
+              <h4 className="text-[14px] font-bold text-[#0F172A]">
+                Simulation Result vs Current Baseline ({selectedWell})
+              </h4>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#F1F5F9] text-[#64748B]">
+                {scenarioMode.toUpperCase()}
+              </span>
+            </div>
             
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[13px]">
@@ -391,6 +422,37 @@ export const SimulationLabPage: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Simulation Multi-Metric Visual Comparison Chart */}
+          {chartData.length > 0 && (
+            <div className="bg-white p-5 rounded-lg border border-[#E2E8F0] shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-[#005C53]" />
+                  <h4 className="text-[14px] font-bold text-[#0F172A]">
+                    Baseline vs Simulated Metrics
+                  </h4>
+                </div>
+                <span className="text-[11px] font-semibold text-[#64748B]">Relative Units</span>
+              </div>
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', color: '#fff', fontSize: '12px', border: 'none' }}
+                      formatter={(val: any, name?: any) => [val, name === 'baseline' ? 'Current Baseline' : 'Simulated Scenario'] as any}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+                    <Bar dataKey="baseline" name="Current Baseline" fill="#94A3B8" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="simulated" name="Simulated Scenario" fill="#005C53" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* Scenario Recommended Banner */}
           <div className={`p-4 rounded-lg border flex items-center gap-3.5 shadow-xs ${

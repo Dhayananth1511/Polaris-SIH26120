@@ -197,12 +197,20 @@ async def field_stats(request: Request, db: AsyncSession = Depends(get_db)):
     avg_eff = round(sum(effs) / len(effs), 0) if effs else 75.0
     high_risk_count = sum(1 for w in wells_data if w["failureRisk"] == "High")
 
+    water_cuts = [w["waterCut"] for w in wells_data if w.get("waterCut") is not None and w["waterCut"] > 0]
+    avg_water_cut = round(sum(water_cuts) / len(water_cuts), 1) if water_cuts else 0.0
+
+    steam_res = await db.execute(select(func.sum(CSSCycle.steam_volume_ton)))
+    total_steam_ton = round(float(steam_res.scalar() or 0.0), 1)
+
     payload = {
         "success": True,
         "data": {
             "totalProduction": total_prod,
             "activeWells": well_count,
             "averageSOR": avg_sor,
+            "averageWaterCut": avg_water_cut,
+            "totalSteamInjectedTon": total_steam_ton,
             "energyConsumption": 340.5,
             "equipmentHealth": int(avg_eff),
             "highRiskWells": high_risk_count,

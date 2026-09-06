@@ -18,7 +18,7 @@ import math
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -27,19 +27,19 @@ from scipy import stats
 warnings.filterwarnings("ignore", category=UserWarning)
 
 try:
-    import xgboost as xgb
+    import xgboost as xgb  # pyrefly: ignore[missing-import] # type: ignore
 except ImportError:  # pragma: no cover
     xgb = None  # type: ignore
 
 try:
-    from sklearn.ensemble import IsolationForest
-    from sklearn.preprocessing import StandardScaler
+    from sklearn.ensemble import IsolationForest  # pyrefly: ignore[missing-import] # type: ignore
+    from sklearn.preprocessing import StandardScaler  # pyrefly: ignore[missing-import] # type: ignore
 except ImportError:  # pragma: no cover
     IsolationForest = None  # type: ignore
     StandardScaler = None  # type: ignore
 
 try:
-    import shap
+    import shap  # pyrefly: ignore[missing-import] # type: ignore
 except ImportError:  # pragma: no cover
     shap = None  # type: ignore
 
@@ -177,7 +177,7 @@ class MLEngine:
         """
         self.ensure_ready()
 
-        if IsolationForest is None or not hasattr(self, "_anomaly_model"):
+        if IsolationForest is None or not hasattr(self, "_anomaly_model") or not hasattr(self, "_anom_scaler"):
             return {"anomalyScore": 0.12, "isAnomaly": False, "method": "fallback"}
 
         vals = [features.get(f, self._anom_feature_means.get(f, 0.0)) for f in ANOMALY_FEATURES]
@@ -241,7 +241,7 @@ class MLEngine:
         Falls back to feature-importance weights if SHAP unavailable.
         """
         self.ensure_ready()
-        X = pd.DataFrame([current_features])[PROD_FEATURES].fillna(self._prod_feature_means)
+        X = cast(pd.DataFrame, pd.DataFrame([current_features])[PROD_FEATURES].fillna(self._prod_feature_means))
         shap_vals = self._compute_shap(X)
 
         return {
@@ -410,7 +410,7 @@ class MLEngine:
 
     def _train_anomaly_model(self) -> None:
         """Train Isolation Forest on well telemetry data."""
-        if IsolationForest is None:
+        if IsolationForest is None or StandardScaler is None:
             logger.warning("scikit-learn not installed — skipping anomaly model")
             return
 
@@ -470,19 +470,19 @@ class MLEngine:
 
     # ── Private Helpers ────────────────────────────────────────────────────────
 
-    def _compute_shap(self, X: pd.DataFrame) -> List[Dict[str, Any]]:
+    def _compute_shap(self, X: pd.DataFrame | Any) -> List[Dict[str, Any]]:
         """Compute SHAP values. Falls back to XGB feature importance."""
-        if shap is not None and hasattr(self, "_shap_explainer") and hasattr(self, "_prod_model"):
+        if xgb is not None and shap is not None and hasattr(self, "_shap_explainer") and hasattr(self, "_prod_model"):
             try:
                 sv = self._shap_explainer.shap_values(xgb.DMatrix(X))
                 row = sv[0] if sv.ndim > 1 else sv
-                total_abs = sum(abs(v) for v in row) or 1.0
+                total_abs = float(sum(abs(float(v)) for v in row)) or 1.0
                 return [
                     {
                         "feature":     PROD_FEATURES[i],
                         "shapValue":   round(float(row[i]), 4),
-                        "absContrib":  round(float(abs(row[i])), 4),
-                        "pctContrib":  round(float(abs(row[i])) / total_abs * 100, 1),
+                        "absContrib":  round(abs(float(row[i])), 4),
+                        "pctContrib":  round((abs(float(row[i])) / total_abs) * 100.0, 1),
                     }
                     for i in range(len(PROD_FEATURES))
                 ]
@@ -491,14 +491,18 @@ class MLEngine:
 
         if hasattr(self, "_prod_model"):
             try:
-                fi = self._prod_model.get_fscore()
+                raw_fi = self._prod_model.get_fscore()
+                fi: Dict[str, float] = {
+                    k: v[0] if isinstance(v, (list, tuple)) else v
+                    for k, v in raw_fi.items()
+                }
                 total = sum(fi.values()) or 1.0
                 return [
                     {
                         "feature":    f,
-                        "shapValue":  round(fi.get(f, 0) / total * 5.0, 4),
-                        "absContrib": round(fi.get(f, 0) / total, 4),
-                        "pctContrib": round(fi.get(f, 0) / total * 100, 1),
+                        "shapValue":  round(fi.get(f, 0.0) / total * 5.0, 4),
+                        "absContrib": round(fi.get(f, 0.0) / total, 4),
+                        "pctContrib": round((fi.get(f, 0.0) / total) * 100.0, 1),
                     }
                     for f in PROD_FEATURES
                 ]
@@ -507,7 +511,7 @@ class MLEngine:
 
         # Final fallback: uniform
         return [
-            {"feature": f, "shapValue": 0.0, "absContrib": 0.0, "pctContrib": round(100 / len(PROD_FEATURES), 1)}
+            {"feature": f, "shapValue": 0.0, "absContrib": 0.0, "pctContrib": round(100.0 / len(PROD_FEATURES), 1)}
             for f in PROD_FEATURES
         ]
 

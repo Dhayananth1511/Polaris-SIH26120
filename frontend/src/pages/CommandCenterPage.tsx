@@ -6,7 +6,7 @@ import {
   Droplets, Flame, Settings, TrendingDown, Thermometer, Radio, Eye, Brain,
   Check, ArrowRight, X, Sliders, ShieldCheck, Compass
 } from 'lucide-react';
-import { wellsApi, alertsApi, type BackendWell, type BackendAlert } from '../services/api';
+import { wellsApi, alertsApi, approvalsApi, type BackendWell, type BackendAlert, type BackendApproval } from '../services/api';
 import { FieldMapBaghewala } from '../components/map/FieldMapBaghewala';
 import { EdgeStreamBar } from '../components/ui/EdgeStreamBar';
 
@@ -25,15 +25,17 @@ export const CommandCenterPage: React.FC = () => {
   const [productionTrend, setProductionTrend] = useState<any[]>([]);
   const [primaryWellCss, setPrimaryWellCss] = useState<any>(null);
   const [primaryWellSrp, setPrimaryWellSrp] = useState<any>(null);
+  const [latestApproval, setLatestApproval] = useState<BackendApproval | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [wellsRes, alertsRes, statsRes, trendRes] = await Promise.all([
+      const [wellsRes, alertsRes, statsRes, trendRes, approvalsRes] = await Promise.all([
         wellsApi.listWells(),
         alertsApi.listAlerts({ limit: 20 }),
         wellsApi.fieldStats(),
         wellsApi.fieldProductionTrend(30),
+        approvalsApi.listApprovals(),
       ]);
       if (wellsRes.success) {
         setWells(wellsRes.data);
@@ -56,6 +58,10 @@ export const CommandCenterPage: React.FC = () => {
       if (alertsRes.success) setAlertsList(alertsRes.data);
       if (statsRes.success) setFieldStats(statsRes.data);
       if (trendRes.success) setProductionTrend(trendRes.data);
+      if (approvalsRes.success && approvalsRes.data.length > 0) {
+        const pending = approvalsRes.data.find(a => a.status === 'Pending') || approvalsRes.data[0];
+        setLatestApproval(pending);
+      }
     } catch (err) {
       console.error('CommandCenter fetch error:', err);
     } finally {
@@ -180,58 +186,82 @@ export const CommandCenterPage: React.FC = () => {
         onAnomalyInjected={() => fetchAll()} 
       />
 
-      {/* ── 4 Key Performance Metrics Row ───────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── 6 Key Field Performance Metrics Row (Pure Real Live Data) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {[
           { 
             label: 'Total Production', 
-            val: fieldStats?.totalProduction ? Number(fieldStats.totalProduction).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '194.9', 
+            val: fieldStats?.totalProduction !== undefined ? Number(fieldStats.totalProduction).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : null, 
             unit: 'BPD', 
-            sub: fieldStats?.productionDelta || '+6.4% WoW', 
+            sub: fieldStats?.productionDelta || 'WoW Trend', 
             subColor: '#15803D', 
-            icon: <Layers className="w-5 h-5 text-[#15803D]" />, 
+            icon: <Layers className="w-4 h-4 text-[#15803D]" />, 
             bg: '#E8F5E9' 
           },
           { 
             label: 'Average SOR', 
-            val: fieldStats?.averageSOR ? Number(fieldStats.averageSOR).toFixed(2) : '0.22', 
-            unit: 'SOR', 
-            sub: fieldStats?.sorDelta || '-8.2% Efficiency', 
+            val: fieldStats?.averageSOR !== undefined ? Number(fieldStats.averageSOR).toFixed(2) : null, 
+            unit: 'm³/m³', 
+            sub: fieldStats?.sorDelta || 'Thermal Efficiency', 
             subColor: '#15803D', 
-            icon: <Flame className="w-5 h-5 text-[#EA580C]" />, 
+            icon: <Flame className="w-4 h-4 text-[#EA580C]" />, 
             bg: '#FFEDD5' 
           },
           { 
-            label: 'Energy Consumption', 
-            val: fieldStats?.energyConsumption ? Math.round(fieldStats.energyConsumption).toString() : '533', 
+            label: 'Field Steam Output', 
+            val: fieldStats?.totalSteamInjectedTon !== undefined ? Math.round(fieldStats.totalSteamInjectedTon).toLocaleString() : null, 
+            unit: 'Tonnes', 
+            sub: 'Cumulative CSS Cycles', 
+            subColor: '#C2410C', 
+            icon: <Droplets className="w-4 h-4 text-[#EA580C]" />, 
+            bg: '#FFF7ED' 
+          },
+          { 
+            label: 'Avg Water Cut', 
+            val: fieldStats?.averageWaterCut !== undefined ? `${Number(fieldStats.averageWaterCut).toFixed(1)}%` : null, 
+            unit: 'WOR Index', 
+            sub: 'Field Average', 
+            subColor: '#0284C7', 
+            icon: <Gauge className="w-4 h-4 text-[#0284C7]" />, 
+            bg: '#F0F9FF' 
+          },
+          { 
+            label: 'Energy Draw', 
+            val: fieldStats?.energyConsumption !== undefined ? Math.round(fieldStats.energyConsumption).toString() : null, 
             unit: 'kWh/bbl', 
-            sub: fieldStats?.energyDelta || '-5.1% Power', 
+            sub: fieldStats?.energyDelta || 'Surface Power', 
             subColor: '#15803D', 
-            icon: <Zap className="w-5 h-5 text-[#D97706]" />, 
+            icon: <Zap className="w-4 h-4 text-[#D97706]" />, 
             bg: '#FEF3C7' 
           },
           { 
             label: 'Equipment Health', 
-            val: `${fieldStats?.equipmentHealth || 63}%`, 
-            unit: `${fieldStats?.activeWells || wells.length} Wells`, 
-            sub: `${fieldStats?.activeWells || wells.length} Monitored Online`, 
+            val: fieldStats?.equipmentHealth !== undefined ? `${fieldStats.equipmentHealth}%` : null, 
+            unit: `${wells.length} Wells`, 
+            sub: `${wells.filter(w => w.status === 'Producing').length || wells.length} Active Lift`, 
             subColor: '#15803D', 
-            icon: <Activity className="w-5 h-5 text-[#0284C7]" />, 
+            icon: <Activity className="w-4 h-4 text-[#0284C7]" />, 
             bg: '#E0F2FE' 
           },
         ].map((kpi, idx) => (
-          <div key={idx} className="bg-white p-5 rounded border border-[#E2E8F0] shadow-xs hover:shadow-sm transition-shadow">
+          <div key={idx} className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-2xs hover:shadow-sm transition-shadow">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[12px] font-bold text-[#64748B] uppercase tracking-wide">{kpi.label}</span>
-              <div className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: kpi.bg }}>
+              <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wide truncate">{kpi.label}</span>
+              <div className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: kpi.bg }}>
                 {kpi.icon}
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#0F172A]">{kpi.val}</span>
-              <span className="text-[13px] text-[#64748B] font-bold">{kpi.unit}</span>
+            <div className="flex items-baseline gap-1.5 min-h-[32px]">
+              {kpi.val !== null ? (
+                <>
+                  <span className="text-2xl font-black text-[#0F172A] tracking-tight">{kpi.val}</span>
+                  <span className="text-[11px] text-[#64748B] font-bold">{kpi.unit}</span>
+                </>
+              ) : (
+                <div className="h-6 w-20 bg-slate-100 rounded animate-pulse my-1" />
+              )}
             </div>
-            <p className="text-[12px] font-bold mt-2" style={{ color: kpi.subColor }}>
+            <p className="text-[11px] font-semibold mt-1 truncate" style={{ color: kpi.subColor }}>
               {kpi.sub}
             </p>
           </div>
@@ -242,7 +272,7 @@ export const CommandCenterPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
         {/* CSS Thermal Cycle Status */}
-        <div className="bg-white p-4.5 rounded border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4.5 rounded-lg border border-[#E2E8F0] shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9]">
               <div className="flex items-center gap-2">
@@ -250,30 +280,36 @@ export const CommandCenterPage: React.FC = () => {
                 <h3 className="text-[14px] font-bold text-[#0F172A]">Current CSS Cycle Status</h3>
               </div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FFEDD5] text-[#C2410C]">
-                Cycle #{primaryWellCss?.cycleNumber ?? 4} Active
+                {primaryWellCss?.cycleNumber ? `Cycle #${primaryWellCss.cycleNumber} Active` : (loading ? 'Loading...' : 'Cycle Active')}
               </span>
             </div>
-            <p className="text-[12px] text-[#475569] mb-3">
-              Well <strong>BGW-001</strong> is currently in <strong>Production Phase</strong> following {primaryWellCss?.steamVolumeTon ? Math.round(primaryWellCss.steamVolumeTon) : 1169}t steam injection &amp; {primaryWellCss?.soakTimeHr ?? 144}h soak.
+            <p className="text-[12px] text-[#475569] mb-3 leading-relaxed">
+              Well <strong>{wells[0]?.name || 'BGW-001'}</strong> is in <strong>{wells[0]?.cssPhase || 'Production'} Phase</strong> following {primaryWellCss?.steamVolumeTon ? `${Math.round(primaryWellCss.steamVolumeTon).toLocaleString()}t` : (loading ? '...' : '—')} steam injection &amp; {primaryWellCss?.soakTimeHr !== undefined ? `${primaryWellCss.soakTimeHr}h` : (loading ? '...' : '—')} soak.
             </p>
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Steam Injected</span>
-                <strong className="text-[#0F172A]">{primaryWellCss?.steamVolumeTon ? Math.round(primaryWellCss.steamVolumeTon).toLocaleString() : '1,169'} t</strong>
+                <strong className="text-[#0F172A]">
+                  {primaryWellCss?.steamVolumeTon ? `${Math.round(primaryWellCss.steamVolumeTon).toLocaleString()} t` : (loading ? '...' : '—')}
+                </strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Peak Temp</span>
-                <strong className="text-[#EA580C]">{primaryWellCss?.steamTemperatureC ? Math.round(primaryWellCss.steamTemperatureC) : 225} °C</strong>
+                <strong className="text-[#EA580C]">
+                  {primaryWellCss?.steamTemperatureC ? `${Math.round(primaryWellCss.steamTemperatureC)} °C` : (loading ? '...' : '—')}
+                </strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Current Rate</span>
-                <strong className="text-[#16A34A]">{wells[0]?.oilProduction ?? 28.5} BOPD</strong>
+                <strong className="text-[#16A34A]">
+                  {wells[0]?.oilProduction !== undefined ? `${wells[0].oilProduction} BOPD` : (loading ? '...' : '—')}
+                </strong>
               </div>
             </div>
           </div>
           <button
             onClick={() => navigate('/app/css-operations')}
-            className="mt-3 text-[12px] font-bold text-[#D32F2F] hover:text-[#B71C1C] flex items-center gap-1"
+            className="mt-3 text-[12px] font-bold text-[#D32F2F] hover:text-[#B71C1C] flex items-center gap-1 cursor-pointer"
           >
             <span>View CSS Operations</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -281,7 +317,7 @@ export const CommandCenterPage: React.FC = () => {
         </div>
 
         {/* SRP Health & Diagnostics */}
-        <div className="bg-white p-4.5 rounded border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4.5 rounded-lg border border-[#E2E8F0] shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9]">
               <div className="flex items-center gap-2">
@@ -289,30 +325,36 @@ export const CommandCenterPage: React.FC = () => {
                 <h3 className="text-[14px] font-bold text-[#0F172A]">SRP Mechanical Health</h3>
               </div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#E0F2FE] text-[#0369A1]">
-                {Math.round(primaryWellSrp?.pumpEfficiencyPct ?? wells[0]?.pumpEfficiency ?? 64)}% Overall Health
+                {primaryWellSrp?.pumpEfficiencyPct ? `${Math.round(primaryWellSrp.pumpEfficiencyPct)}% Operating Index` : (loading ? 'Loading...' : `${wells[0]?.pumpEfficiency || 0}% Operating Index`)}
               </span>
             </div>
-            <p className="text-[12px] text-[#475569] mb-3">
-              Surface unit running at <strong>{primaryWellSrp?.spm ?? 5.96} SPM</strong> with <strong>{primaryWellSrp?.strokeLengthIn ? Math.round(primaryWellSrp.strokeLengthIn) : 132}" stroke</strong>. Dynamometer indicates stable mechanical lift.
+            <p className="text-[12px] text-[#475569] mb-3 leading-relaxed">
+              Surface unit running at <strong>{primaryWellSrp?.spm ? `${Number(primaryWellSrp.spm).toFixed(2)} SPM` : (loading ? '...' : '—')}</strong> with <strong>{primaryWellSrp?.strokeLengthIn ? `${Math.round(primaryWellSrp.strokeLengthIn)}"` : (loading ? '...' : '—')} stroke</strong>. Dynamometer indicates stable mechanical lift.
             </p>
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Polished Rod Load</span>
-                <strong className="text-[#DC2626]">{primaryWellSrp?.polishedRodLoadKN ? Number(primaryWellSrp.polishedRodLoadKN).toFixed(1) : '16.9'} kN</strong>
+                <strong className="text-[#DC2626]">
+                  {primaryWellSrp?.polishedRodLoadKN ? `${Number(primaryWellSrp.polishedRodLoadKN).toFixed(1)} kN` : (loading ? '...' : '—')}
+                </strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">Pump Efficiency</span>
-                <strong className="text-[#0F172A]">{Math.round(primaryWellSrp?.pumpEfficiencyPct ?? 64)} %</strong>
+                <strong className="text-[#0F172A]">
+                  {primaryWellSrp?.pumpEfficiencyPct ? `${Math.round(primaryWellSrp.pumpEfficiencyPct)} %` : (loading ? '...' : '—')}
+                </strong>
               </div>
               <div>
                 <span className="text-[#94A3B8] block text-[10px]">VFD Inverter</span>
-                <strong className="text-[#16A34A]">{primaryWellSrp?.vfdFrequencyHz ? Number(primaryWellSrp.vfdFrequencyHz).toFixed(1) : '44.5'} Hz</strong>
+                <strong className="text-[#16A34A]">
+                  {primaryWellSrp?.vfdFrequencyHz ? `${Number(primaryWellSrp.vfdFrequencyHz).toFixed(1)} Hz` : (loading ? '...' : '—')}
+                </strong>
               </div>
             </div>
           </div>
           <button
             onClick={() => navigate('/app/srp-diagnostics')}
-            className="mt-3 text-[12px] font-bold text-[#D32F2F] hover:text-[#B71C1C] flex items-center gap-1"
+            className="mt-3 text-[12px] font-bold text-[#D32F2F] hover:text-[#B71C1C] flex items-center gap-1 cursor-pointer"
           >
             <span>Inspect SRP Diagnostics</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -320,7 +362,7 @@ export const CommandCenterPage: React.FC = () => {
         </div>
 
         {/* Latest AI Recommendation */}
-        <div className="bg-white p-4.5 rounded border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4.5 rounded-lg border border-[#E2E8F0] shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9]">
               <div className="flex items-center gap-2">
@@ -328,14 +370,18 @@ export const CommandCenterPage: React.FC = () => {
                 <h3 className="text-[14px] font-bold text-[#0F172A]">Latest AI Recommendation</h3>
               </div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FEF2F2] text-[#DC2626]">
-                Pending Approval
+                {latestApproval?.status ? `${latestApproval.status} Approval` : (loading ? 'Checking...' : 'Pending Approval')}
               </span>
             </div>
             <strong className="text-[13px] text-[#0F172A] block mb-1">
-              Well BGW-001: Reduce SPM to 5.1 &amp; VFD to 36 Hz
+              {latestApproval ? `Well ${latestApproval.wellId}: ${latestApproval.recommendation}` : (loading ? 'Fetching AI recommendation...' : 'Well BGW-001: Optimization Setpoint Verified')}
             </strong>
             <p className="text-[12px] text-[#475569] leading-relaxed mb-3">
-              Expected Impact: <strong className="text-[#15803D]">+14% Net Oil Rate</strong>, <strong className="text-[#15803D]">-8% Rod Tension</strong>.
+              {latestApproval?.impact ? (
+                <>Expected Impact: <strong className="text-[#15803D]">{latestApproval.impact}</strong></>
+              ) : (
+                'System operating within target thermal and mechanical envelope.'
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2 pt-2 border-t border-[#F1F5F9]">

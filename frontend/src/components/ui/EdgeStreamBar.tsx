@@ -62,6 +62,8 @@ export const EdgeStreamBar: React.FC<EdgeStreamBarProps> = ({
     }
   };
 
+  const [showSandbox, setShowSandbox] = useState<boolean>(false);
+
   const t = streamData?.telemetry;
 
   return (
@@ -88,74 +90,90 @@ export const EdgeStreamBar: React.FC<EdgeStreamBarProps> = ({
           </div>
         </div>
 
-        {/* Live Metrics Pills */}
+        {/* Live Metrics Pills - Pure Real Data from Edge Telemetry */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
             <Thermometer className="w-3.5 h-3.5 text-amber-600" />
             <span className="text-slate-500">BHT:</span>
-            <span className="font-bold text-slate-800">{t?.reservoirTempC || 66.1}°C</span>
+            <span className="font-bold text-slate-800">
+              {t?.reservoirTempC !== undefined ? `${Number(t.reservoirTempC).toFixed(1)}°C` : <Loader2 className="w-3 h-3 animate-spin text-slate-400 inline" />}
+            </span>
           </div>
 
           <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
             <Activity className="w-3.5 h-3.5 text-blue-600" />
             <span className="text-slate-500">Viscosity:</span>
-            <span className="font-bold text-slate-800">{t?.viscosityCP || 1209} cP</span>
+            <span className="font-bold text-slate-800">
+              {t?.viscosityCP !== undefined ? `${Math.round(t.viscosityCP)} cP` : <Loader2 className="w-3 h-3 animate-spin text-slate-400 inline" />}
+            </span>
           </div>
 
           <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
             <Cpu className="w-3.5 h-3.5 text-emerald-600" />
             <span className="text-slate-500">SPM:</span>
             <span className={`font-bold ${t?.isFloatingRisk ? 'text-red-600 font-black' : 'text-slate-800'}`}>
-              {t?.spm || 5.9}
+              {t?.spm !== undefined ? Number(t.spm).toFixed(1) : <Loader2 className="w-3 h-3 animate-spin text-slate-400 inline" />}
             </span>
-            <span className="text-[10px] text-slate-400 font-mono">(Crit: {t?.spmCrit || 14.0})</span>
+            {t?.spmCrit !== undefined && (
+              <span className="text-[10px] text-slate-400 font-mono">(Crit: {Number(t.spmCrit).toFixed(1)})</span>
+            )}
           </div>
 
           <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
             <Radio className="w-3.5 h-3.5 text-purple-600" />
             <span className="text-slate-500">Vibration:</span>
-            <span className="font-bold text-slate-800">{t?.vibrationMmS || 2.8} mm/s</span>
+            <span className="font-bold text-slate-800">
+              {t?.vibrationMmS !== undefined ? `${Number(t.vibrationMmS).toFixed(2)} mm/s` : <Loader2 className="w-3 h-3 animate-spin text-slate-400 inline" />}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Bottom bar: Interactive Fault Injections (SIH Demonstration Novelty) */}
+      {/* Bottom bar: Optional Demo Simulation Sandbox Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-2">
           <Zap className="w-3.5 h-3.5 text-amber-500" />
           <span className="text-xs font-bold text-slate-700">
-            Field Anomaly Injector (Virtual Testing Lab):
+            Field Anomaly Injector (Simulation Sandbox):
           </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => handleInjectAnomaly('rod_floating')}
-            disabled={injectingType !== null}
-            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            onClick={() => setShowSandbox(prev => !prev)}
+            className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline ml-1 cursor-pointer"
           >
-            {injectingType === 'rod_floating' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" /> : <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
-            <span>⚡ Inject Rod Floating</span>
-          </button>
-
-          <button
-            onClick={() => handleInjectAnomaly('thermal_shock')}
-            disabled={injectingType !== null}
-            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            {injectingType === 'thermal_shock' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" /> : <Thermometer className="w-3.5 h-3.5 text-amber-600" />}
-            <span>🌡️ Inject Thermal Shock</span>
-          </button>
-
-          <button
-            onClick={() => handleInjectAnomaly('motor_overload')}
-            disabled={injectingType !== null}
-            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            {injectingType === 'motor_overload' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-purple-600" />}
-            <span>📉 Inject Motor Surge</span>
+            {showSandbox ? 'Hide Test Controls' : 'Show Test Controls (Demo)'}
           </button>
         </div>
+
+        {showSandbox && (
+          <div className="flex flex-wrap items-center gap-2 animate-fadeIn">
+            <button
+              onClick={() => handleInjectAnomaly('rod_floating')}
+              disabled={injectingType !== null}
+              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              {injectingType === 'rod_floating' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" /> : <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
+              <span>⚡ Inject Rod Floating</span>
+            </button>
+
+            <button
+              onClick={() => handleInjectAnomaly('thermal_shock')}
+              disabled={injectingType !== null}
+              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              {injectingType === 'thermal_shock' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" /> : <Thermometer className="w-3.5 h-3.5 text-amber-600" />}
+              <span>🌡️ Inject Thermal Shock</span>
+            </button>
+
+            <button
+              onClick={() => handleInjectAnomaly('motor_overload')}
+              disabled={injectingType !== null}
+              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              {injectingType === 'motor_overload' ? <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-purple-600" />}
+              <span>📉 Inject Motor Surge</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Live Feedback Toast if Anomaly Triggered */}

@@ -338,6 +338,8 @@ export const wellsApi = {
         totalProduction: number;
         activeWells: number;
         averageSOR: number;
+        averageWaterCut?: number;
+        totalSteamInjectedTon?: number;
         energyConsumption: number;
         equipmentHealth: number;
         highRiskWells: number;
