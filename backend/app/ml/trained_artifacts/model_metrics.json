@@ -6,7 +6,7 @@
       "r2": 0.94,
       "rmse_c": 1.45
     },
-    "last_trained": "2026-09-06T17:49:37.699643",
+    "last_trained": "2026-09-06T23:19:13.966186",
     "artifact_path": "thermal_model.joblib"
   },
   "production_forecaster": {
@@ -16,7 +16,7 @@
       "r2_oil": 0.91,
       "rmse_bpd": 2.85
     },
-    "last_trained": "2026-09-06T17:49:37.699643",
+    "last_trained": "2026-09-06T23:19:13.966186",
     "artifact_path": "production_forecaster.joblib"
   },
   "fault_classifier": {
@@ -26,11 +26,11 @@
       "roc_auc": 0.96,
       "accuracy": 0.94
     },
-    "last_trained": "2026-09-06T17:49:37.699643",
+    "last_trained": "2026-09-06T23:19:13.966186",
     "artifact_path": "fault_classifier.joblib"
   },
   "training_summary": {
-    "duration_seconds": 1.73,
-    "completed_at": "2026-09-06T17:49:37.699643"
+    "duration_seconds": 1.77,
+    "completed_at": "2026-09-06T23:19:13.966186"
   }
 }

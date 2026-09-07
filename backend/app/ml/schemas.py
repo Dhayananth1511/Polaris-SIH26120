@@ -13,7 +13,7 @@ class ReservoirPredictRequest(BaseModel):
     steam_volume_ton: float = Field(800.0, ge=100.0, le=3000.0, description="Injected steam volume (metric tons)")
     injection_temp_c: float = Field(235.0, ge=150.0, le=320.0, description="Steam injection temperature (°C)")
     soak_time_hr: float = Field(72.0, ge=12.0, le=300.0, description="Steam soak duration (hours)")
-    forecast_days: int = Field(60, ge=7, le=180, description="Forecast horizon in days")
+    forecast_days: int = Field(60, ge=1, le=180, description="Forecast horizon in days")
 
 
 class DailyThermalPoint(BaseModel):

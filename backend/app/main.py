@@ -2,6 +2,7 @@
 Polaris Backend — FastAPI Application Factory
 """
 from contextlib import asynccontextmanager
+from typing import Callable, cast
 
 import structlog
 from fastapi import FastAPI
@@ -56,7 +57,7 @@ def create_app() -> FastAPI:
 
     # ── Rate limiter ──────────────────────────────────────────────────────────
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, cast(Callable, _rate_limit_exceeded_handler))
     app.add_middleware(SlowAPIMiddleware)
 
     # ── CORS ──────────────────────────────────────────────────────────────────
@@ -98,5 +99,9 @@ def create_app() -> FastAPI:
     @app.get("/api/health", tags=["Health"], include_in_schema=False)
     async def health():
         return {"status": "operational", "service": "polaris-api"}
+
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return {"status": "operational", "service": "polaris-api", "version": "1.0.0"}
 
     return app

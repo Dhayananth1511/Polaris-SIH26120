@@ -91,11 +91,19 @@ class TelemetryReplayEngine:
     def set_well(self, well_id: str) -> bool:
         with self._lock:
             wid = well_id.upper()
-            if wid in self._telemetry_by_well:
+            if wid == "ALL" or wid in self._telemetry_by_well:
                 self.active_well_id = wid
-                self.current_index = 0
+                # Preserve current_index so all wells remain in time-sync!
                 return True
             return False
+
+    def seek(self, frame_index: int) -> Dict[str, Any]:
+        with self._lock:
+            sample_rows = self._telemetry_by_well.get("BGW-001", [])
+            total = len(sample_rows) or 400
+            self.current_index = max(0, min(frame_index, total - 1))
+            self.last_tick = time.time()
+            return self._get_state_internal()
 
     def start(self, speed: Optional[float] = None) -> Dict[str, Any]:
         with self._lock:
@@ -114,13 +122,15 @@ class TelemetryReplayEngine:
         with self._lock:
             self.current_index = 0
             self.is_playing = False
+            self.last_tick = time.time()
             return self._get_state_internal()
 
     def step(self, steps: int = 1) -> Dict[str, Any]:
         with self._lock:
-            rows = self._telemetry_by_well.get(self.active_well_id, [])
-            if rows:
-                self.current_index = (self.current_index + steps) % len(rows)
+            sample_rows = self._telemetry_by_well.get("BGW-001", [])
+            total = len(sample_rows) or 400
+            self.current_index = (self.current_index + steps) % total
+            self.last_tick = time.time()
             return self._get_state_internal()
 
     def set_speed(self, speed: float) -> Dict[str, Any]:
@@ -137,17 +147,29 @@ class TelemetryReplayEngine:
                 step_interval = max(0.2, 2.0 / self.speed)
                 if elapsed >= step_interval:
                     steps_to_advance = int(elapsed / step_interval)
-                    rows = self._telemetry_by_well.get(self.active_well_id, [])
-                    if rows:
-                        self.current_index = (self.current_index + steps_to_advance) % len(rows)
+                    sample_rows = self._telemetry_by_well.get("BGW-001", [])
+                    total = len(sample_rows) or 400
+                    self.current_index = (self.current_index + steps_to_advance) % total
                     self.last_tick = now
 
             return self._get_state_internal()
 
     def _get_state_internal(self) -> Dict[str, Any]:
-        rows = self._telemetry_by_well.get(self.active_well_id, [])
-        total = len(rows)
-        current_row = rows[self.current_index] if (rows and self.current_index < total) else None
+        target_well = "BGW-001" if self.active_well_id == "ALL" else self.active_well_id
+        rows = self._telemetry_by_well.get(target_well, [])
+        total = len(rows) or 400
+        current_row = rows[self.current_index] if (rows and self.current_index < len(rows)) else None
+
+        # Compute field-wide summary at current frame
+        field_pressures = []
+        field_flows = []
+        field_spms = []
+        for wid, wrows in self._telemetry_by_well.items():
+            if self.current_index < len(wrows):
+                r = wrows[self.current_index]
+                field_pressures.append(r.get("pressure_bar", 0.0))
+                field_flows.append(r.get("flow_rate_bpd", 0.0))
+                field_spms.append(r.get("rpm", 5.5))
 
         if current_row:
             temp_c = current_row["reservoir_temperature_c"]
@@ -201,16 +223,28 @@ class TelemetryReplayEngine:
                 "timestamp": datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             }
 
+        avg_p = round(sum(field_pressures) / max(len(field_pressures), 1), 2) if field_pressures else 18.5
+        avg_f = round(sum(field_flows) / max(len(field_flows), 1), 2) if field_flows else 28.5
+        avg_spm = round(sum(field_spms) / max(len(field_spms), 1), 2) if field_spms else 5.5
+
         return {
             "isPlaying": self.is_playing,
             "speed": self.speed,
             "activeWellId": self.active_well_id,
+            "isFieldSync": self.active_well_id == "ALL",
+            "availableWells": sorted(list(self._telemetry_by_well.keys())),
             "currentIndex": self.current_index,
             "totalFrames": total,
             "simulatedLiveLabel": "SIMULATED LIVE DATA",
             "prototypeDisclaimer": "Prototype Mode — Synthetic/Simulated Data",
             "decisionSupportNotice": "AI recommendations are decision-support outputs and require engineer validation before operational use.",
             "currentReading": coupled_state,
+            "fieldSummary": {
+                "totalWells": len(self._telemetry_by_well),
+                "avgPressureBar": avg_p,
+                "avgFlowRateBpd": avg_f,
+                "avgSpm": avg_spm,
+            },
         }
 
 

@@ -40,7 +40,7 @@ def main():
             print(f"    - {k}: {v}")
 
     print("\n" + "=" * 70)
-    print("[✓] ML model training pipeline successfully executed.")
+    print("[OK] ML model training pipeline successfully executed.")
     print("=" * 70 + "\n")
 
 if __name__ == "__main__":

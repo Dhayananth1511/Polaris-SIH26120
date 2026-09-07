@@ -8,6 +8,7 @@ import math
 from typing import Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
+import structlog
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +20,7 @@ from app.services.heavy_oil_physics import (
     calculate_oil_viscosity_cp,
 )
 
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/simulation", tags=["Simulation"])
 
 
@@ -367,23 +369,35 @@ async def get_edge_stream(
     from datetime import datetime, timezone
 
     wid = well_id.upper()
-    well = (await db.execute(select(Well).where(Well.id == wid))).scalar_one_or_none()
-    if not well:
-        raise HTTPException(status_code=404, detail=f"Well {well_id} not found")
+    base_temp = 68.0
+    base_spm = 5.5
+    base_vibration = 2.8
 
-    tel = (await db.execute(
-        select(WellTelemetry).where(WellTelemetry.well_id == wid)
-        .order_by(desc(WellTelemetry.timestamp)).limit(1)
-    )).scalar_one_or_none()
+    try:
+        well = (await db.execute(select(Well).where(Well.id == wid))).scalar_one_or_none()
+        if not well:
+            raise HTTPException(status_code=404, detail=f"Well {well_id} not found")
 
-    srp = (await db.execute(
-        select(SRPOperation).where(SRPOperation.well_id == wid)
-        .order_by(desc(SRPOperation.timestamp)).limit(1)
-    )).scalar_one_or_none()
+        tel = (await db.execute(
+            select(WellTelemetry).where(WellTelemetry.well_id == wid)
+            .order_by(desc(WellTelemetry.timestamp)).limit(1)
+        )).scalar_one_or_none()
 
-    base_temp = tel.reservoir_temperature_c if tel and tel.reservoir_temperature_c else 68.0
-    base_spm = srp.spm if srp and srp.spm else 5.5
-    base_vibration = tel.vibration_mm_s if tel and tel.vibration_mm_s else 2.8
+        srp = (await db.execute(
+            select(SRPOperation).where(SRPOperation.well_id == wid)
+            .order_by(desc(SRPOperation.timestamp)).limit(1)
+        )).scalar_one_or_none()
+
+        if tel and tel.reservoir_temperature_c:
+            base_temp = tel.reservoir_temperature_c
+        if srp and srp.spm:
+            base_spm = srp.spm
+        if tel and tel.vibration_mm_s:
+            base_vibration = tel.vibration_mm_s
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("edge_stream_db_transient_fallback", well_id=wid, error=str(exc))
 
     # Realistic micro-jitter for live streaming pulse
     noise_temp = round(base_temp + (random.random() - 0.5) * 0.4, 1)

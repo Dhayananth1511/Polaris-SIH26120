@@ -35,7 +35,7 @@ def run():
         print("[-] Error occurred during dynamometer card seeding.")
         sys.exit(dyn_proc.returncode)
 
-    print("\n[✓] Ingestion complete. All Baghewala records ingested into PostgreSQL successfully.\n")
+    print("\n[OK] Ingestion complete. All Baghewala records ingested into PostgreSQL successfully.\n")
 
 if __name__ == "__main__":
     run()

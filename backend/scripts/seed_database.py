@@ -24,7 +24,7 @@ def main():
     if admin_proc.returncode != 0:
         print("[!] Note: Admin bootstrap finished with warnings.")
 
-    print("\n[✓] Database seed process finished successfully.\n")
+    print("\n[OK] Database seed process finished successfully.\n")
 
 if __name__ == "__main__":
     main()

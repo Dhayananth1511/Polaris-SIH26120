@@ -46,7 +46,7 @@ def validate_all():
             except ValueError:
                 issues.append(f"well_master.csv: {wid} non-numeric depth")
 
-    print(f"[✓] Well Master: {len(well_ids)} valid well identifiers verified: {sorted(list(well_ids))}")
+    print(f"[OK] Well Master: {len(well_ids)} valid well identifiers verified: {sorted(list(well_ids))}")
 
     # 2. Validate production.csv
     prod_rows = 0
@@ -65,7 +65,7 @@ def validate_all():
             except ValueError:
                 issues.append(f"production.csv: Row {i} non-numeric oil_rate_bpd")
 
-    print(f"[✓] Production: {prod_rows:,} records checked. Negative production count: {neg_prod}")
+    print(f"[OK] Production: {prod_rows:,} records checked. Negative production count: {neg_prod}")
 
     # 3. Validate well_telemetry.csv
     tel_rows = 0
@@ -84,7 +84,7 @@ def validate_all():
             except ValueError:
                 pass
 
-    print(f"[✓] Telemetry: {tel_rows:,} records checked. Physical reservoir temp bounded in [10, 350]°C: {tel_rows - temp_anomalies}/{tel_rows}")
+    print(f"[OK] Telemetry: {tel_rows:,} records checked. Physical reservoir temp bounded in [10, 350] degC: {tel_rows - temp_anomalies}/{tel_rows}")
 
     # 4. Validate srp_operations.csv
     srp_rows = 0
@@ -99,7 +99,7 @@ def validate_all():
                     spm_anomalies += 1
             except ValueError:
                 pass
-    print(f"[✓] SRP Operations: {srp_rows:,} records checked. SPM bounded in [0, 25]: {srp_rows - spm_anomalies}/{srp_rows}")
+    print(f"[OK] SRP Operations: {srp_rows:,} records checked. SPM bounded in [0, 25]: {srp_rows - spm_anomalies}/{srp_rows}")
 
     # 5. Validate css_cycles.csv
     css_rows = 0
@@ -107,7 +107,7 @@ def validate_all():
         reader = csv.DictReader(f)
         for i, row in enumerate(reader, 1):
             css_rows += 1
-    print(f"[✓] CSS Cycles: {css_rows:,} records checked.")
+    print(f"[OK] CSS Cycles: {css_rows:,} records checked.")
 
     # 6. Validate failure_events.csv
     fail_rows = 0
@@ -115,7 +115,7 @@ def validate_all():
         reader = csv.DictReader(f)
         for i, row in enumerate(reader, 1):
             fail_rows += 1
-    print(f"[✓] Failure Events: {fail_rows:,} records checked.")
+    print(f"[OK] Failure Events: {fail_rows:,} records checked.")
 
     # 7. Validate dynamometer_cards.csv
     dyn_rows = 0
@@ -123,7 +123,7 @@ def validate_all():
         reader = csv.DictReader(f)
         for i, row in enumerate(reader, 1):
             dyn_rows += 1
-    print(f"[✓] Dynamometer Cards: {dyn_rows:,} position-load point records checked.")
+    print(f"[OK] Dynamometer Cards: {dyn_rows:,} position-load point records checked.")
 
     print("-" * 70)
     if issues:
@@ -133,7 +133,7 @@ def validate_all():
         if len(issues) > 10:
             print(f"    ... and {len(issues) - 10} more.")
     else:
-        print("[✓] ALL DATA INTEGRITY & PHYSICAL VALIDATION CHECKS PASSED PERFECTLY.")
+        print("[OK] ALL DATA INTEGRITY & PHYSICAL VALIDATION CHECKS PASSED PERFECTLY.")
     print("=" * 70)
     return len(issues) == 0
 
