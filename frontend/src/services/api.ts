@@ -72,19 +72,40 @@ async function request<T>(
       if (!response.ok) {
         let errorData: any = {};
         try {
-          errorData = await response.json();
+          const errText = await response.text();
+          if (errText && errText.trim().length > 0) {
+            try {
+              errorData = JSON.parse(errText);
+            } catch {
+              errorData = { error: { message: `Server error (${response.status}): ${errText.slice(0, 120)}` } };
+            }
+          }
         } catch {
-          errorData = { error: { message: response.statusText || 'Request failed' } };
+          errorData = { error: { message: response.statusText || `Request failed with status ${response.status}` } };
         }
 
-        const message = errorData.error?.message || errorData.detail || 'An unexpected error occurred';
+        const message = errorData.error?.message || errorData.detail || `Server error (${response.status}). Please verify backend is running.`;
         const err = new Error(message) as Error & { code?: string; status?: number };
         err.code = errorData.error?.code;
         err.status = response.status;
         throw err;
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      if (text && text.trim().length > 0) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+            throw new Error('API request routed to HTML page. Please verify your Render Static Site rewrite rule for /api/* points to your backend URL.');
+          }
+          throw new Error(`Server returned non-JSON response: ${text.slice(0, 100)}`);
+        }
+      } else {
+        throw new Error('Backend returned an empty response. The service may still be waking up on Render Free tier. Please wait 30 seconds and retry.');
+      }
+
       if (isGet) {
         clientCache.set(cacheKey, { data, expiry: Date.now() + CLIENT_CACHE_TTL_MS });
       }
