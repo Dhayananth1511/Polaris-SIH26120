@@ -1,0 +1,5 @@
+search-path = [
+    "backend",
+    "backend/.venv/Lib/site-packages"
+]
+ignore-missing-imports = ["xgboost", "shap", "sklearn", "scipy"]

@@ -1,0 +1,9 @@
+well_id,field,latitude,longitude,well_depth_m,pump_depth_m,reservoir,formation,oil_api,initial_reservoir_pressure_bar,initial_reservoir_temperature_C,automation_type
+BGW-001,Baghewala,26.9961,71.59178,1109.6,998.9,Jodhpur Sandstone,Jodhpur Sandstone,18.7,70.9,41.9,RPC_automated
+BGW-002,Baghewala,26.94302,71.60164,1114.4,1025.4,Jodhpur Sandstone,Jodhpur Sandstone,17.9,61.1,58.5,RPC_automated
+BGW-003,Baghewala,26.94107,71.59129,977.4,881.5,Jodhpur Sandstone,Jodhpur Sandstone,18.1,51.9,56.6,RPC_automated
+BGW-004,Baghewala,26.91468,71.47701,941.8,793.9,Jodhpur Sandstone,Jodhpur Sandstone,18.8,73.4,43.9,RPC_automated
+BGW-005,Baghewala,26.89927,71.54513,861.7,733.9,Jodhpur Sandstone,Jodhpur Sandstone,18.5,79.0,46.5,manual_gauge
+BGW-006,Baghewala,26.90994,71.60323,875.8,786.7,Jodhpur Sandstone,Jodhpur Sandstone,18.0,56.8,53.4,manual_gauge
+BGW-007,Baghewala,26.88613,71.5792,1080.1,978.2,Jodhpur Sandstone,Jodhpur Sandstone,18.7,74.1,47.7,manual_gauge
+BGW-008,Baghewala,26.95283,71.59492,855.9,761.9,Jodhpur Sandstone,Jodhpur Sandstone,17.0,73.6,53.3,manual_gauge
